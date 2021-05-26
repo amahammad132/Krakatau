@@ -62,7 +62,7 @@ class VerifierTypesState(object):
     def returnTo(self, called, jsrstate):
         mask = self.maskFor(called)
         # merge locals using mask
-        zipped = itertools.izip_longest(self.locals, jsrstate.locals, fillvalue=T_INVALID)
+        zipped = itertools.zip_longest(self.locals, jsrstate.locals, fillvalue=T_INVALID)
         self.locals = [(x if i in mask else y) for i,(x,y) in enumerate(zipped)]
 
     def merge(self, other, env):
@@ -208,7 +208,7 @@ def _getPopAmount(cpool, instr, method):
             args += 1
         return args
 
-codes = dict(zip('IFJD', [T_INT, T_FLOAT, T_LONG, T_DOUBLE]))
+codes = dict(list(zip('IFJD', [T_INT, T_FLOAT, T_LONG, T_DOUBLE])))
 def _getStackResult(cpool, instr, key):
     op = instr[0]
 
@@ -342,7 +342,7 @@ class InstructionNode(object):
             opname, default, jumps = self.instruction
             targets = (default,)
             if jumps:
-                targets += zip(*jumps)[1]
+                targets += list(zip(*jumps))[1]
             self.successors = targets
         else:
             self.successors = next_,
@@ -433,7 +433,7 @@ class InstructionNode(object):
         if successors is None:
             assert self.op == ops.RET
             called = self.state.local(self.instruction[1]).extra
-            temp = [n.next_instruction for n in iNodes.values() if (n.op == ops.JSR and n.instruction[1] == called)]
+            temp = [n.next_instruction for n in list(iNodes.values()) if (n.op == ops.JSR and n.instruction[1] == called)]
             successors = self.successors = tuple(temp)
             self.jsrTarget = called # store for later use in ssa creation
 
@@ -492,7 +492,7 @@ def verifyBytecode(code):
         else:
             typen = 'java/lang/Throwable'
         return (rawdata.start, rawdata.end, iNodeLookup[rawdata.handler], T_OBJECT(typen))
-    exceptions = map(makeException, code.except_raw)
+    exceptions = list(map(makeException, code.except_raw))
 
     start = iNodes[0]
     start.state = stateFromInitialArgs(args)

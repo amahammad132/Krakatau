@@ -84,7 +84,7 @@ class ClassFile(object):
         self.attributes_raw = get_attributes_raw(bytestream, ic_indices)
         assert bytestream.size() == 0
 
-        self.flags = frozenset(name for name,mask in ClassFile.flagVals.items() if (mask & flags))
+        self.flags = frozenset(name for name,mask in list(ClassFile.flagVals.items()) if (mask & flags))
         self.cpool = constant_pool.ConstPool(const_pool_raw)
         self.name = self.cpool.getArgsCheck('Class', self.this)
         self.elementsLoaded = False

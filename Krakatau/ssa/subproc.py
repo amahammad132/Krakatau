@@ -35,7 +35,7 @@ class ProcCallOp(ProcJumpBase):
         self.input = inslots
         self.output = outslots
 
-        for var in self.output.stack + self.output.locals.values():
+        for var in self.output.stack + list(self.output.locals.values()):
             if var is not None:
                 assert var.origin is None
                 var.origin = self
@@ -52,7 +52,7 @@ class DummyRet(ProcJumpBase):
 
     def replaceVars(self, varDict):
         newstack = [varDict.get(v, v) for v in self.input.stack]
-        newlocals = {k: varDict.get(v, v) for k, v in self.input.locals.items()}
+        newlocals = {k: varDict.get(v, v) for k, v in list(self.input.locals.items())}
         self.input = slots_t(stack=newstack, locals=newlocals)
 
     def getNormalSuccessors(self): return ()

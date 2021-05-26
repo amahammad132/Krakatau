@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import collections
 import math
@@ -120,7 +120,7 @@ class ReferencePrinter(object):
         for i, slot in enumerate(self.cpslots):
             if slot.tag is None:
                 self.forcedraw.add(i)
-        self.forcedraw.update(range(len(self.cpslots), 65536))
+        self.forcedraw.update(list(range(len(self.cpslots), 65536)))
 
         self.used = set()
         self.encoded = {}

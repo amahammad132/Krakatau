@@ -59,7 +59,7 @@ class BasicBlock(object):
         self.locals_at_except = None
 
     def filterVarConstraints(self, keepvars):
-        self.unaryConstraints = {k:v for k,v in self.unaryConstraints.items() if k in keepvars}
+        self.unaryConstraints = {k:v for k,v in list(self.unaryConstraints.items()) if k in keepvars}
 
     def removePredPair(self, pair):
         self.predecessors.remove(pair)

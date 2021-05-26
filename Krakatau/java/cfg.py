@@ -45,7 +45,7 @@ class DUBlock(object):
                     data = replace.get(data[0], data[0]), replace.get(data[1], data[1])
                 newlines.append((line_t, data))
             self.lines = newlines
-            for k, v in replace.items():
+            for k, v in list(replace.items()):
                 if k in self.vars:
                     self.vars.remove(k)
                     self.vars.add(v)
@@ -82,7 +82,7 @@ def visitExpr(expr, lines):
         lines.append(('use', expr))
 
     if isinstance(expr, ast.Assignment):
-        lhs, rhs = map(varOrNone, expr.params)
+        lhs, rhs = list(map(varOrNone, expr.params))
 
         # with assignment we need to only visit LHS if it isn't a local in order to avoid spurious uses
         # also, we need to visit RHS before generating the def

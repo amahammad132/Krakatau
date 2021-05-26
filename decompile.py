@@ -1,5 +1,5 @@
-#!/usr/bin/env python2
-from __future__ import print_function
+#!/usr/bin/env python
+
 
 import os.path
 import time, random, subprocess, functools
@@ -112,8 +112,9 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
                 continue
 
             # The single class decompiler doesn't add package declaration currently so we add it here
-            if '/' in target:
-                package = 'package {};\n\n'.format(escapeString(target.replace('/','.').rpartition('.')[0]))
+            if b'/' in target:
+                #package = 'package {};\n\n'.format(escapeString(target.replace(b'/',b'.').rpartition(b'.')[0]))
+                package = 'package {};\n\n'.format((target.replace(b'/',b'.').rpartition(b'.')[0]).decode())
                 source = package + source
 
             filename = out.write(c.name.encode('utf8'), source)
@@ -154,5 +155,5 @@ if __name__== "__main__":
         path.append(args.target)
 
     targets = script_util.findFiles(args.target, args.r, '.class')
-    targets = map(script_util.normalizeClassname, targets)
+    targets = list(map(script_util.normalizeClassname, targets))
     decompileClass(path, targets, args.out, args.skip, magic_throw=args.xmagicthrow)

@@ -16,7 +16,7 @@ _ssaToTT = {ssa_types.SSA_INT:objtypes.IntTT, ssa_types.SSA_LONG:objtypes.LongTT
 class VarInfo(object):
     def __init__(self, method, blocks, namegen):
         self.env = method.class_.env
-        self.labelgen = LabelGen().next
+        self.labelgen = LabelGen().__next__
 
         returnTypes = parseMethodDescriptor(method.descriptor, unsynthesize=False)[-1]
         self.return_tt = objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else None
@@ -27,7 +27,7 @@ class VarInfo(object):
         self._vars = {}
         self._tts = {}
         for block in blocks:
-            for var, uc in block.unaryConstraints.items():
+            for var, uc in list(block.unaryConstraints.items()):
                 if var.type == ssa_types.SSA_OBJECT:
                     tt = uc.getSingleTType() # temp hack
                     if uc.types.isBoolOrByteArray():
@@ -79,7 +79,7 @@ class VarInfo(object):
 _math_types = (ssa_ops.IAdd, ssa_ops.IDiv, ssa_ops.IMul, ssa_ops.IRem, ssa_ops.ISub)
 _math_types += (ssa_ops.IAnd, ssa_ops.IOr, ssa_ops.IShl, ssa_ops.IShr, ssa_ops.IUshr, ssa_ops.IXor)
 _math_types += (ssa_ops.FAdd, ssa_ops.FDiv, ssa_ops.FMul, ssa_ops.FRem, ssa_ops.FSub)
-_math_symbols = dict(zip(_math_types, '+ / * % - & | << >> >>> ^ + / * % -'.split()))
+_math_symbols = dict(list(zip(_math_types, '+ / * % - & | << >> >>> ^ + / * % -'.split())))
 def _convertJExpr(op, getExpr, clsname):
     params = [getExpr(var) for var in op.params]
     assert None not in params
@@ -188,8 +188,8 @@ def _createASTBlock(info, endk, node):
             assert isinstance(block.lines[-1], ssa_ops.ExceptionPhi)
             split_ind = block.lines.index(block.lines[-1].params[0].origin)
 
-        lines_before = filter(None, map(op2expr, block.lines[:split_ind]))
-        lines_after = filter(None, map(op2expr, block.lines[split_ind:]))
+        lines_before = [_f for _f in map(op2expr, block.lines[:split_ind]) if _f]
+        lines_after = [_f for _f in map(op2expr, block.lines[split_ind:]) if _f]
     else:
         lines_before, lines_after = [], []
 
@@ -260,7 +260,7 @@ def _createASTBlock(info, endk, node):
     assert None not in statements
     return new
 
-_cmp_strs = dict(zip(('eq','ne','lt','ge','gt','le'), "== != < >= > <=".split()))
+_cmp_strs = dict(list(zip(('eq','ne','lt','ge','gt','le'), "== != < >= > <=".split())))
 def _createASTSub(info, current, ftitem, forceUnlabled=False):
     begink = current.entryBlock._key
     endk = ftitem.entryBlock._key if ftitem is not None else None
@@ -308,7 +308,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
             part.breakKey = endk # createSub will assume break should be ft, which isn't the case with switch statements
 
         expr = info.var(node, jump.params[0])
-        pairs = zip(current.ordered_keysets, parts)
+        pairs = list(zip(current.ordered_keysets, parts))
         new = ast.SwitchStatement(info.labelgen, midk, endk, expr, pairs)
 
     # bundle head and if together so we can return as single statement

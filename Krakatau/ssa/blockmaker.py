@@ -7,6 +7,7 @@ from ..verifier import verifier_types
 from . import ssa_jumps, ssa_ops, subproc
 from .blockmakerfuncs import ResultDict, instructionHandlers
 from .ssa_types import BasicBlock, SSA_OBJECT, slots_t
+from functools import reduce
 
 def toBits(x): return [i for i in range(x.bit_length()) if x & (1 << i)]
 
@@ -58,7 +59,7 @@ def getUsedLocals(iNodes, iNodeD, exceptions):
 
 def slotsRvals(inslots):
     stack = [(None if phi is None else phi.rval) for phi in inslots.stack]
-    newlocals = {i: phi.rval for i, phi in inslots.locals.items() if phi is not None}
+    newlocals = {i: phi.rval for i, phi in list(inslots.locals.items()) if phi is not None}
     return slots_t(stack=stack, locals=newlocals)
 
 _jump_instrs = frozenset([vops.GOTO, vops.IF_A, vops.IF_ACMP, vops.IF_I, vops.IF_ICMP, vops.JSR, vops.SWITCH])
@@ -224,7 +225,7 @@ class BlockMaker(object):
             if ivar and ivar.type == SSA_OBJECT and ivar.decltype is None:
                 parent.setObjVarData(ivar, iNode.state.stack[i], initMap)
 
-        for i, ivar in inslots.locals.items():
+        for i, ivar in list(inslots.locals.items()):
             if ivar and ivar.type == SSA_OBJECT and ivar.decltype is None:
                 parent.setObjVarData(ivar, iNode.state.locals[i], initMap)
 
@@ -298,7 +299,7 @@ class BlockMaker(object):
             if phi is not None:
                 phi.add(from_key, outslots.stack[i])
 
-        for i, phi in inslots.locals.items():
+        for i, phi in list(inslots.locals.items()):
             if phi is not None:
                 phi.add(from_key, outslots.locals[i])
 

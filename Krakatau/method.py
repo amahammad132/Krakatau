@@ -53,7 +53,7 @@ class Code(object):
         lines += ['{}: {}'.format(i, bytecode.printInstruction(instructions[i])) for i in sorted(instructions)]
         if self.except_raw:
             lines += ['Exception Handlers:']
-            lines += map(str, self.except_raw)
+            lines += list(map(str, self.except_raw))
         return '\n'.join(lines)
 
 class Method(object):
@@ -82,7 +82,7 @@ class Method(object):
         # print 'Loading method ', self.name, self.descriptor
         self.attributes = fixAttributeNames(attributes_raw, cpool)
 
-        self.flags = set(name for name, mask in Method.flagVals.items() if (mask & flags))
+        self.flags = set(name for name, mask in list(Method.flagVals.items()) if (mask & flags))
         # Flags are ignored for <clinit>?
         if self.name == '<clinit>':
             self.flags = set(['STATIC'])

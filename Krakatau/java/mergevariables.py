@@ -213,7 +213,7 @@ class VarMergeInfo(object):
     def process(self, replace, doeq):
         final, unmergeable, external = self.final, self.unmergeable, self.external
         d = self.info
-        work_q = [(info.priority(), var) for var, info in d.items()]
+        work_q = [(info.priority(), var) for var, info in list(d.items())]
         heapq.heapify(work_q)
         dirty = set(d) - external
 

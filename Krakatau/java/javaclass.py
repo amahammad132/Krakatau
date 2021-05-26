@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 import struct
 
 from ..ssa import objtypes
@@ -36,7 +36,8 @@ def _getField(field):
 def _getMethod(method, cb, forbidden_identifiers, skip_errors):
     try:
         graph = cb(method) if method.code is not None else None
-        print('Decompiling method', method.name.encode('utf8'), method.descriptor.encode('utf8'))
+        print('Decompiling method', method.name, method.descriptor)
+        #print('Decompiling method', method.name.encode('utf8'), method.descriptor.encode('utf8'))
         code_ast = javamethod.generateAST(method, graph, forbidden_identifiers)
         return code_ast
     except Exception as e:

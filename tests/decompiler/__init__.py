@@ -26,7 +26,7 @@ registry = {
     'Switch': ([], ['0'], ['0', '1'], ['0', '1', '2'], ['0', '1', '2', '3'],
                ['0', '1', '2', '3', '4']),
     'Synchronized': ([], [''], ['', '', '', '']),
-    'TryCatchTest': ([], ['bad'], ['bad', 'boy'], ['good'], [u'f'], ['=', '='],
+    'TryCatchTest': ([], ['bad'], ['bad', 'boy'], ['good'], ['f'], ['=', '='],
                      ['<<', '<', ':', '>', '>>']),
     'TryWithResources': ([],),
     'UnicodeTest': ([],),

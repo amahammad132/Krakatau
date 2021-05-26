@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import collections
 import errno
@@ -34,11 +34,11 @@ def findFiles(target, recursive, prefix):
         else:
             return [target]
 
-def normalizeClassname(name):
-    if name.endswith('.class'):
+def normalizeClassname(name: str):
+    if name.endswith(b'.class'):
         name = name[:-6]
     # Replacing backslashes is ugly since they can be in valid classnames too, but this seems the best option
-    return name.replace('\\','/').replace('.','/')
+    return name.replace(b'\\',b'/').replace(b'.',b'/')
 
 # Windows stuff
 illegal_win_chars = frozenset('<>;:|?*\\/"%')

@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import ast
 import struct
@@ -46,7 +46,7 @@ class Parser(object):
         self.field = self.method = self.code = None
 
     def _next_token(self):
-        return self.tokenizer.next()
+        return next(self.tokenizer)
 
     def _format_error_args(self, message, tok):
         if tok.type == 'NEWLINES' or tok.type == 'EOF':
@@ -58,7 +58,7 @@ class Parser(object):
         messages = args[0::2]
         tokens = args[1::2]
         assert len(messages) == len(tokens)
-        self.tokenizer.error(*map(self._format_error_args, messages, tokens))
+        self.tokenizer.error(*list(map(self._format_error_args, messages, tokens)))
 
     def fail(self):
         assert unique(self.triedvals)

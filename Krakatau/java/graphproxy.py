@@ -29,8 +29,8 @@ class BlockProxy(object):
     def replaceSuccessors(self, rmap):
         update = lambda k:rmap.get(k,k)
 
-        self.successors = map(update, self.successors)
-        self.outvars = {update(k):v for k,v in self.outvars.items()}
+        self.successors = list(map(update, self.successors))
+        self.outvars = {update(k):v for k,v in list(self.outvars.items())}
         if self.block is not None:
             d1 = self.blockdict
             self.blockdict = {(b.key,t):update(d1[b.key,t]) for (b,t) in self.block.jump.getSuccessorPairs()}
@@ -98,7 +98,7 @@ def createGraphProxy(ssagraph):
             lookup[n.bkey, False] = n
         if True in intypes[n.bkey]:
             lookup[n.bkey, True] = n
-    assert unique(lookup.values())
+    assert unique(list(lookup.values()))
 
     for n in nodes:
         n.blockdict = lookup

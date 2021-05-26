@@ -35,11 +35,11 @@ class CatchSetManager(object):
         return CatchSetManager(self.env, self.sets.copy(), self.mask)
 
     def replaceKeys(self, replace):
-        self.sets = collections.OrderedDict((replace.get(key,key), val) for key, val in self.sets.items())
+        self.sets = collections.OrderedDict((replace.get(key,key), val) for key, val in list(self.sets.items()))
 
     def _conscheck(self):
         temp = ExceptionSet.EMPTY
-        for v in self.sets.values():
+        for v in list(self.sets.values()):
             assert not v & temp
             temp |= v
         assert temp == self.mask
@@ -68,7 +68,7 @@ class ExceptionSet(ValueType):
 
     def _key(self): return self.pairs
     def empty(self): return not self.pairs
-    def __nonzero__(self): return bool(self.pairs)
+    def __bool__(self): return bool(self.pairs)
 
     def getTopTTs(self): return sorted([objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
 

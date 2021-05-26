@@ -16,21 +16,21 @@ class Switch(BaseJump):
             ordered = [default]
         else:
             tset = set()
-            ordered = [x for x in (default,) + zip(*table)[1] if not x in tset and not tset.add(x)]
+            ordered = [x for x in (default,) + list(zip(*table))[1] if not x in tset and not tset.add(x)]
 
         self.successors = ordered
         reverse = collections.defaultdict(set)
         for k,v in table:
             if v != default:
                 reverse[v].add(k)
-        self.reverse = {k: frozenset(v) for k, v in reverse.items()}
+        self.reverse = {k: frozenset(v) for k, v in list(reverse.items())}
 
     def getNormalSuccessors(self):
         return self.successors
 
     def replaceBlocks(self, blockDict):
         self.successors = [blockDict.get(key,key) for key in self.successors]
-        self.reverse = {blockDict.get(k,k):v for k,v in self.reverse.items()}
+        self.reverse = {blockDict.get(k,k):v for k,v in list(self.reverse.items())}
 
     def reduceSuccessors(self, pairsToRemove):
         temp = list(self.successors)
@@ -69,7 +69,8 @@ class Switch(BaseJump):
                 impossible.append((child,False))
         return self.reduceSuccessors(impossible)
 
-    def getSuccessorConstraints(self, (block, t)):
+    def getSuccessorConstraints(self, xxx_todo_changeme):
+        (block, t) = xxx_todo_changeme
         if block in self.reverse:
             cmin = min(self.reverse[block])
             cmax = max(self.reverse[block])
@@ -78,7 +79,7 @@ class Switch(BaseJump):
                     return None,
                 return IntConstraint.range(x.width, max(cmin, x.min), min(cmax, x.max)),
         else:
-            allcases = set().union(*self.reverse.values())
+            allcases = set().union(*list(self.reverse.values()))
             def propagateConstraints(x):
                 if x is None or (x.min == x.max and x.min in allcases):
                     return None,

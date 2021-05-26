@@ -1,4 +1,4 @@
-from __future__ import division
+
 
 from . import opnames
 
@@ -147,7 +147,7 @@ def getNextInstruction(data, address):
         assert high >= low
         numpairs = high - low + 1
         offsets = [data.get('>i') + address for _ in range(numpairs)]
-        jumps = zip(range(low, high+1), offsets)
+        jumps = list(zip(list(range(low, high+1)), offsets))
         inst = opnames.SWITCH, default, jumps
     elif byte == 0xab: # Lookup Switch
         padding = data.getRaw((3-address) % 4)

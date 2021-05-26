@@ -219,7 +219,7 @@ class PoolSub(object):
         size = max(self.slots) + 1 if self.slots else 0
         dummyentry = b'\1\0\0' # empty UTF8
         if self.isbs and self.slots:
-            first = next(iter(self.slots.values()))
+            first = next(iter(list(self.slots.values())))
             dummyentry = self.writebootstrap(Writer(), first, pool, error).toBytes()
 
         w = Writer()
@@ -249,7 +249,7 @@ class Pool(object):
     def sub(self, ref): return self.bs if ref.isbs else self.cp
 
     def resolveIDBSRefs(self, error):
-        for v in self.cp.slots.values():
+        for v in list(self.cp.slots.values()):
             if v is not None and v.type == 'InvokeDynamic':
                 v.refs[0].resolve(self, error)
 

@@ -22,7 +22,7 @@ class Field(object):
         self.descriptor = cpool.getArgsCheck('Utf8', desc_id)
         self.attributes = fixAttributeNames(attributes_raw, cpool)
 
-        self.flags = set(name for name,mask in Field.flagVals.items() if (mask & flags))
+        self.flags = set(name for name,mask in list(Field.flagVals.items()) if (mask & flags))
         self.static = 'STATIC' in self.flags
         if keepRaw:
             self.attributes_raw = attributes_raw

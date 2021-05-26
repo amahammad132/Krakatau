@@ -1,12 +1,12 @@
-#!/usr/bin/env python2
-from __future__ import print_function
+#!/usr/bin/env python3
+
 
 import functools
 import os.path
 import time, zipfile, sys
 
 try:
-    from StringIO import StringIO
+    from io import StringIO
 except ImportError:
     from io import StringIO
 

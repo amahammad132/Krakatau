@@ -44,7 +44,7 @@ def visitStatementTree(scope, callback, catchcb=None):
             for pair in item.pairs:
                 catchcb(pair[0])
 
-int_tags = frozenset(map(objtypes.baset, [IntTT, ShortTT, CharTT, ByteTT, BoolTT]))
+int_tags = frozenset(list(map(objtypes.baset, [IntTT, ShortTT, CharTT, ByteTT, BoolTT])))
 
 # Fix int/bool and byte[]/bool[] vars
 def boolizeVars(root, arg_vars):

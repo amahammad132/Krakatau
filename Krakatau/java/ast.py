@@ -127,7 +127,7 @@ class TryStatement(LazyLabelBase):
         super(TryStatement, self).__init__(labelfunc, begink, endk)
         self.tryb, self.pairs = tryb, pairs
 
-    def getScopes(self): return (self.tryb,) + zip(*self.pairs)[1]
+    def getScopes(self): return (self.tryb,) + list(zip(*self.pairs))[1]
 
     def print_(self, printer, print_):
         tryb = print_(self.tryb)
@@ -135,7 +135,7 @@ class TryStatement(LazyLabelBase):
         return '{}try {} {}'.format(self.getLabelPrefix(), tryb, '\n'.join(parts))
 
     def tree(self, printer, tree):
-        parts = [map(tree, t) for t in self.pairs]
+        parts = [list(map(tree, t)) for t in self.pairs]
         return [self.__class__.__name__, self.label, tree(self.tryb), parts]
 
 class IfStatement(LazyLabelBase):
@@ -163,7 +163,7 @@ class IfStatement(LazyLabelBase):
         parts = [print_(x) for x in parts]
         return '{}if ({}) {} else {}'.format(lbl, *parts)
 
-    def tree(self, printer, tree): return [self.__class__.__name__, self.label, tree(self.expr), map(tree, self.scopes)]
+    def tree(self, printer, tree): return [self.__class__.__name__, self.label, tree(self.expr), list(map(tree, self.scopes))]
 
 class SwitchStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, expr, pairs):
@@ -171,8 +171,8 @@ class SwitchStatement(LazyLabelBase):
         self.expr = expr # don't rename without changing how var replacement works!
         self.pairs = pairs
 
-    def getScopes(self): return zip(*self.pairs)[1]
-    def hasDefault(self): return None in zip(*self.pairs)[0]
+    def getScopes(self): return list(zip(*self.pairs))[1]
+    def hasDefault(self): return None in list(zip(*self.pairs))[0]
 
     def print_(self, printer, print_):
         expr = print_(self.expr)
@@ -261,7 +261,7 @@ class StatementBlock(LazyLabelBase):
         common = [x for x in zip(*blists) if len(set(x)) == 1]
         return common[-1][0]
 
-    def tree(self, printer, tree): return ['BlockStatement', self.label, map(tree, self.statements)]
+    def tree(self, printer, tree): return ['BlockStatement', self.label, list(map(tree, self.statements))]
 
 #############################################################################################################################################
 # Careful, order is important here!
@@ -339,7 +339,7 @@ class JavaExpression(object):
     def print_(self, printer, print_):
         return self.fmt.format(*[print_(expr) for expr in self.params])
 
-    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params)]
+    def tree(self, printer, tree): return [self.__class__.__name__, list(map(tree, self.params))]
 
     def replaceSubExprs(self, rdict):
         if self in rdict:
@@ -399,7 +399,7 @@ class ArrayCreation(JavaExpression):
         assert self.dim >= len(sizeargs) > 0
         self.fmt = 'new {}' + '[{}]'*len(sizeargs) + '[]'*(self.dim-len(sizeargs))
 
-    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), self.dim]
+    def tree(self, printer, tree): return [self.__class__.__name__, list(map(tree, self.params)), self.dim]
 
 class Assignment(JavaExpression):
     precedence = 21
@@ -416,14 +416,14 @@ class Assignment(JavaExpression):
             expr = makeCastExpr(left.dtype, right, fixEnv=env)
             self.params = [left, expr]
 
-    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), '']
+    def tree(self, printer, tree): return [self.__class__.__name__, list(map(tree, self.params)), '']
 
 _binary_ptable = ['* / %', '+ -', '<< >> >>>',
     '< > <= >= instanceof', '== !=',
     '&', '^', '|', '&&', '||']
 
 binary_precedences = {}
-for _ops, _val in zip(_binary_ptable, range(10,20)):
+for _ops, _val in zip(_binary_ptable, list(range(10,20))):
     for _op in _ops.split():
         binary_precedences[_op] = _val
 
@@ -449,7 +449,7 @@ class BinaryInfix(JavaExpression):
             elif p.precedence == myprec and i > 0 and not associative:
                 self.params[i] = Parenthesis(p)
 
-    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), self.opstr]
+    def tree(self, printer, tree): return [self.__class__.__name__, list(map(tree, self.params)), self.opstr]
 
 class Cast(JavaExpression):
     precedence = 5
@@ -484,7 +484,7 @@ class ClassInstanceCreation(JavaExpression):
         return 'new {}({})'.format(print_(self.typename), ', '.join(print_(x) for x in self.params))
 
     def tree(self, printer, tree):
-        return [self.__class__.__name__, map(tree, self.params), tree(self.typename)]
+        return [self.__class__.__name__, list(map(tree, self.params)), tree(self.typename)]
 
     def addCasts_sub(self, env):
         newparams = []
@@ -518,7 +518,7 @@ class FieldAccess(JavaExpression):
             trip = None, self.name, None
         else:
             trip = self.op.target, self.op.name, self.op.desc
-        return [self.__class__.__name__, map(tree, self.params), trip, self.printLeft]
+        return [self.__class__.__name__, list(map(tree, self.params)), trip, self.printLeft]
 
     def addParens_sub(self):
         p0 = self.params[0]
@@ -656,7 +656,7 @@ class MethodInvocation(JavaExpression):
 
     def tree(self, printer, tree):
         trip = self.op.target, self.op.name, self.op.desc
-        return [self.__class__.__name__, map(tree, self.params), trip, self.name, self.hasLeft]
+        return [self.__class__.__name__, list(map(tree, self.params)), trip, self.name, self.hasLeft]
 
     def addCasts_sub(self, env):
         newparams = []
@@ -720,13 +720,13 @@ class TypeName(JavaExpression):
 class CatchTypeNames(JavaExpression): # Used for caught exceptions, which can have multiple types specified
     def __init__(self, env, tts):
         assert(tts and not any(objtypes.dim(tt) for tt in tts)) # at least one type, no array types
-        self.tnames = map(TypeName, tts)
+        self.tnames = list(map(TypeName, tts))
         self.dtype = objtypes.commonSupertype(env, tts)
 
     def print_(self, printer, print_):
         return ' | '.join(print_(tn) for tn in self.tnames)
 
-    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.tnames)]
+    def tree(self, printer, tree): return [self.__class__.__name__, list(map(tree, self.tnames))]
 
 class UnaryPrefix(JavaExpression):
     precedence = 5
@@ -744,7 +744,7 @@ class UnaryPrefix(JavaExpression):
         if p0.precedence > 5 or (isinstance(p0, UnaryPrefix) and p0.opstr[0] == self.opstr[0]):
             self.params[0] = Parenthesis(p0)
 
-    def tree(self, printer, tree): return ['Unary', map(tree, self.params), self.opstr, False]
+    def tree(self, printer, tree): return ['Unary', list(map(tree, self.params)), self.opstr, False]
 
 class Dummy(JavaExpression):
     def __init__(self, fmt, params, isNew=False, dtype=None):
