@@ -2,7 +2,7 @@
 
 
 import os.path
-import time, random, subprocess, functools
+import time, random, subprocess, functools, argparse
 
 import Krakatau
 import Krakatau.ssa
@@ -123,19 +123,8 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
             deleteUnusued(c)
         print(len(e.classes) - len(targets), 'extra classes loaded')
 
-if __name__== "__main__":
+def main(args):
     print(script_util.copyright)
-
-    import argparse
-    parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
-    parser.add_argument('-path',action='append',help='Semicolon seperated paths or jars to search when loading classes')
-    parser.add_argument('-out',help='Path to generate source files in')
-    parser.add_argument('-nauto', action='store_true', help="Don't attempt to automatically locate the Java standard library. If enabled, you must specify the path explicitly.")
-    parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
-    parser.add_argument('-skip', action='store_true', help="Upon errors, skip class or method and continue decompiling")
-    parser.add_argument('-xmagicthrow', action='store_true')
-    parser.add_argument('target',help='Name of class or jar file to decompile')
-    args = parser.parse_args()
 
     path = []
     if not args.nauto:
@@ -157,3 +146,17 @@ if __name__== "__main__":
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = list(map(script_util.normalizeClassname, targets))
     decompileClass(path, targets, args.out, args.skip, magic_throw=args.xmagicthrow)
+
+def set_parser_opts(parser):
+    parser.add_argument('-path',action='append',help='Semicolon seperated paths or jars to search when loading classes')
+    parser.add_argument('-out',help='Path to generate source files in')
+    parser.add_argument('-nauto', action='store_true', help="Don't attempt to automatically locate the Java standard library. If enabled, you must specify the path explicitly.")
+    parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
+    parser.add_argument('-skip', action='store_true', help="Upon errors, skip class or method and continue decompiling")
+    parser.add_argument('-xmagicthrow', action='store_true')
+    parser.add_argument('target',help='Name of class or jar file to decompile')
+
+if __name__== "__main__":
+    parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
+    set_parser_opts(parser)
+    main(parser.parse_args())

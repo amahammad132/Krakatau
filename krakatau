@@ -1,0 +1,26 @@
+#!/usr/bin/env python
+
+import argparse
+import decompile, disassemble, assemble
+
+parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers(dest="command", help="different bytecode manipulation tools")
+
+decomp_parser = subparsers.add_parser("decompile", description='Krakatau decompiler and bytecode analysis tool')
+disas_parser = subparsers.add_parser("disassemble", description='Krakatau decompiler and bytecode analysis tool')
+as_parser = subparsers.add_parser("assemble", description='Krakatau bytecode assembler')
+
+decompile.set_parser_opts(decomp_parser)
+disassemble.set_parser_opts(disas_parser)
+assemble.set_parser_opts(as_parser)
+
+args = parser.parse_args()
+
+if args.command == 'decompile':
+    decompile.main(args)
+elif args.command == 'disassemble':
+    disassemble.main(args)
+elif args.command == 'assemble':
+    assemble.main(args)
+else:
+    parser.print_help()

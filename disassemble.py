@@ -3,7 +3,7 @@
 
 import functools
 import os.path
-import time, zipfile, sys
+import time, zipfile, sys, argparse
 
 try:
     from io import StringIO
@@ -53,17 +53,8 @@ def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=Tr
                 print('Class written to', filename)
                 print(time.time() - start_time, ' seconds elapsed')
 
-if __name__== "__main__":
+def main(args):
     print(script_util.copyright)
-
-    import argparse
-    parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
-    parser.add_argument('-out', help='Path to generate files in')
-    parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
-    parser.add_argument('-path', help='Jar to look for class in')
-    parser.add_argument('-roundtrip', action='store_true', help='Create assembly file that can roundtrip to original binary.')
-    parser.add_argument('target', help='Name of class or jar file to disassemble')
-    args = parser.parse_args()
 
     targets = script_util.findFiles(args.target, args.r, '.class')
 
@@ -78,3 +69,15 @@ if __name__== "__main__":
             disassembleSub(readFunc, out, targets, roundtrip=args.roundtrip)
     else:
         disassembleSub(readFile, out, targets, roundtrip=args.roundtrip, outputClassName=False)
+
+def set_parser_opts(parser):
+    parser.add_argument('-out', help='Path to generate files in')
+    parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
+    parser.add_argument('-path', help='Jar to look for class in')
+    parser.add_argument('-roundtrip', action='store_true', help='Create assembly file that can roundtrip to original binary.')
+    parser.add_argument('target', help='Name of class or jar file to disassemble')
+
+if __name__== "__main__":
+    parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
+    set_parser_opts(parser)
+    main(parser.parse_args())
