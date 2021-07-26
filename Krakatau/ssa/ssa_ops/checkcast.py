@@ -1,7 +1,15 @@
 from .. import excepttypes, objtypes, ssa_types
-from ..constraints import IntConstraint, ObjectConstraint, join, maybeThrow, return_, throw
+from ..constraints import (
+    IntConstraint,
+    ObjectConstraint,
+    join,
+    maybeThrow,
+    return_,
+    throw,
+)
 
 from .base import BaseOp
+
 
 class CheckCast(BaseOp):
     def __init__(self, parent, target, args):
@@ -16,7 +24,9 @@ class CheckCast(BaseOp):
         else:
             # Primative array types need to be in exact, not supers
             self.outCasted = ObjectConstraint.fromTops(parent.env, [], [target])
-        self.outExceptionCons = ObjectConstraint.fromTops(parent.env, [], (excepttypes.ClassCast,), nonnull=True)
+        self.outExceptionCons = ObjectConstraint.fromTops(
+            parent.env, [], (excepttypes.ClassCast,), nonnull=True
+        )
 
     def propagateConstraints(self, x):
         intersect = join(x, self.outCasted)
@@ -27,6 +37,7 @@ class CheckCast(BaseOp):
             return maybeThrow(self.outExceptionCons)
         else:
             return return_(None)
+
 
 class InstanceOf(BaseOp):
     def __init__(self, parent, target, args):

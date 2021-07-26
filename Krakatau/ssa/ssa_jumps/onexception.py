@@ -5,6 +5,7 @@ from ..exceptionset import CatchSetManager, ExceptionSet
 from .base import BaseJump
 from .goto import Goto
 
+
 class OnException(BaseJump):
     def __init__(self, parent, throwvar, chpairs, fallthrough=None):
         super(OnException, self).__init__(parent, [throwvar])
@@ -13,7 +14,7 @@ class OnException(BaseJump):
         self.cs.pruneKeys()
 
     def replaceExceptTarget(self, old, new):
-        self.cs.replaceKeys({old:new})
+        self.cs.replaceKeys({old: new})
 
     def replaceNormalTarget(self, old, new):
         self.default = new if self.default == old else self.default
@@ -54,6 +55,9 @@ class OnException(BaseJump):
         if x is None:
             mask = ExceptionSet.EMPTY
         else:
-            mask = ExceptionSet(x.types.env, [(objtypes.className(tt),()) for tt in x.types.supers | x.types.exact])
+            mask = ExceptionSet(
+                x.types.env,
+                [(objtypes.className(tt), ()) for tt in x.types.supers | x.types.exact],
+            )
         self.cs.newMask(mask)
         return self.reduceSuccessors([])

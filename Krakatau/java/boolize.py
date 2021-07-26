@@ -9,6 +9,8 @@ from . import ast
 # Class union-find data structure except that we don't bother with weighting trees and singletons are implicit
 # Also, booleans are forced to be separate roots
 FORCED_ROOTS = True, False
+
+
 class UnionFind(object):
     def __init__(self):
         self.d = {}
@@ -33,6 +35,7 @@ class UnionFind(object):
         if root1 != root2 and root2 not in FORCED_ROOTS:
             self.d[root2] = root1
 
+
 ##############################################################
 def visitStatementTree(scope, callback, catchcb=None):
     for item in scope.statements:
@@ -44,7 +47,10 @@ def visitStatementTree(scope, callback, catchcb=None):
             for pair in item.pairs:
                 catchcb(pair[0])
 
-int_tags = frozenset(list(map(objtypes.baset, [IntTT, ShortTT, CharTT, ByteTT, BoolTT])))
+
+int_tags = frozenset(
+    list(map(objtypes.baset, [IntTT, ShortTT, CharTT, ByteTT, BoolTT]))
+)
 
 # Fix int/bool and byte[]/bool[] vars
 def boolizeVars(root, arg_vars):
@@ -53,13 +59,21 @@ def boolizeVars(root, arg_vars):
 
     def visitExpr(expr, forceExact=False):
         # see if we have to merge
-        if isinstance(expr, ast.Assignment) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==','!=','&','|','^'):
+        if (
+            isinstance(expr, ast.Assignment)
+            or isinstance(expr, ast.BinaryInfix)
+            and expr.opstr in ("==", "!=", "&", "|", "^")
+        ):
             subs = [visitExpr(param) for param in expr.params]
-            sets.union(*subs) # these operators can work on either type but need the same type on each side
+            sets.union(
+                *subs
+            )  # these operators can work on either type but need the same type on each side
         elif isinstance(expr, ast.ArrayAccess):
-            sets.union(False, visitExpr(expr.params[1])) # array index is int only
-        elif isinstance(expr, ast.BinaryInfix) and expr.opstr in ('* / % + - << >> >>>'):
-            sets.union(False, visitExpr(expr.params[0])) # these operators are int only
+            sets.union(False, visitExpr(expr.params[1]))  # array index is int only
+        elif isinstance(expr, ast.BinaryInfix) and expr.opstr in (
+            "* / % + - << >> >>>"
+        ):
+            sets.union(False, visitExpr(expr.params[0]))  # these operators are int only
             sets.union(False, visitExpr(expr.params[1]))
 
         if isinstance(expr, ast.Local):
@@ -71,10 +85,12 @@ def boolizeVars(root, arg_vars):
                 varlist.append(expr)
                 return sets.find(expr)
         elif isinstance(expr, ast.Literal):
-            if expr.dtype == IntTT and expr.val not in (0,1):
+            if expr.dtype == IntTT and expr.val not in (0, 1):
                 return False
-            return None # if val is 0 or 1, or the literal is a null, it is freely convertable
-        elif isinstance(expr, ast.Assignment) or (isinstance(expr, ast.BinaryInfix) and expr.opstr in ('&','|','^')):
+            return None  # if val is 0 or 1, or the literal is a null, it is freely convertable
+        elif isinstance(expr, ast.Assignment) or (
+            isinstance(expr, ast.BinaryInfix) and expr.opstr in ("&", "|", "^")
+        ):
             return subs[0]
         elif isinstance(expr, (ast.ArrayAccess, ast.Parenthesis, ast.UnaryPrefix)):
             return visitExpr(expr.params[0])
@@ -85,10 +101,10 @@ def boolizeVars(root, arg_vars):
     def visitStatement(item, expr):
         root = visitExpr(expr)
         if isinstance(item, ast.ReturnStatement):
-            forced_val = (objtypes.baset(item.tt) == objtypes.baset(BoolTT))
+            forced_val = objtypes.baset(item.tt) == objtypes.baset(BoolTT)
             sets.union(forced_val, root)
         elif isinstance(item, ast.SwitchStatement):
-            sets.union(False, root) # Switch must take an int, not a bool
+            sets.union(False, root)  # Switch must take an int, not a bool
 
     for expr in arg_vars:
         visitExpr(expr, forceExact=True)
@@ -119,9 +135,11 @@ def boolizeVars(root, arg_vars):
         elif isinstance(expr, ast.BinaryInfix):
             a, b = expr.params
             # shouldn't need to do anything here for arrays
-            if expr.opstr in '== != & | ^' and a.dtype == BoolTT or b.dtype == BoolTT:
+            if expr.opstr in "== != & | ^" and a.dtype == BoolTT or b.dtype == BoolTT:
                 expr.params = [ast.makeCastExpr(BoolTT, v) for v in expr.params]
+
     visitStatementTree(root, callback=fixExpr)
+
 
 # Fix vars of interface/object type
 # TODO: do this properly
@@ -167,7 +185,7 @@ def interfaceVars(env, root, arg_vars):
     newtypes = {}
 
     # visit variables in topological order. Doesn't handle case of loops, but this is a temporary hack anyway
-    order = graph_util.topologicalSort(varlist, lambda v:assigns[v])
+    order = graph_util.topologicalSort(varlist, lambda v: assigns[v])
     for var in order:
         assert var not in newtypes
 
@@ -175,6 +193,10 @@ def interfaceVars(env, root, arg_vars):
         if var in consts:
             tts.append(consts[var])
         newtypes[var] = newtype = objtypes.commonSupertype(env, tts)
-        if newtype != objtypes.ObjectTT and newtype != var.dtype and newtype != objtypes.NullTT:
+        if (
+            newtype != objtypes.ObjectTT
+            and newtype != var.dtype
+            and newtype != objtypes.NullTT
+        ):
             # assert objtypes.baset(var.dtype) == objtypes.baset(objtypes.ObjectTT)
             var.dtype = newtype

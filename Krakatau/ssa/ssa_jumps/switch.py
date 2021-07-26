@@ -7,6 +7,7 @@ from .base import BaseJump
 from .goto import Goto
 from .ifcmp import If
 
+
 class Switch(BaseJump):
     def __init__(self, parent, default, table, arguments):
         super(Switch, self).__init__(parent, arguments)
@@ -16,11 +17,15 @@ class Switch(BaseJump):
             ordered = [default]
         else:
             tset = set()
-            ordered = [x for x in (default,) + list(zip(*table))[1] if not x in tset and not tset.add(x)]
+            ordered = [
+                x
+                for x in (default,) + list(zip(*table))[1]
+                if not x in tset and not tset.add(x)
+            ]
 
         self.successors = ordered
         reverse = collections.defaultdict(set)
-        for k,v in table:
+        for k, v in table:
             if v != default:
                 reverse[v].add(k)
         self.reverse = {k: frozenset(v) for k, v in list(reverse.items())}
@@ -29,8 +34,8 @@ class Switch(BaseJump):
         return self.successors
 
     def replaceBlocks(self, blockDict):
-        self.successors = [blockDict.get(key,key) for key in self.successors]
-        self.reverse = {blockDict.get(k,k):v for k,v in list(self.reverse.items())}
+        self.successors = [blockDict.get(key, key) for key in self.successors]
+        self.reverse = {blockDict.get(k, k): v for k, v in list(self.reverse.items())}
 
     def reduceSuccessors(self, pairsToRemove):
         temp = list(self.successors)
@@ -44,7 +49,7 @@ class Switch(BaseJump):
 
         if len(temp) < len(self.successors):
             self.successors = temp
-            self.reverse = {v:self.reverse[v] for v in temp[1:]}
+            self.reverse = {v: self.reverse[v] for v in temp[1:]}
         return self
 
     def simplifyToIf(self, block):
@@ -56,17 +61,17 @@ class Switch(BaseJump):
                 const = self.parent.makeVariable(SSA_INT)
                 const.const = min(cases)
                 block.unaryConstraints[const] = IntConstraint.const(32, const.const)
-                return If(self.parent, 'eq', self.successors, self.params + [const])
+                return If(self.parent, "eq", self.successors, self.params + [const])
         return self
 
     ###############################################################################
     def constrainJumps(self, x):
         impossible = []
         for child in self.successors:
-            func = self.getSuccessorConstraints((child,False))
+            func = self.getSuccessorConstraints((child, False))
             results = func(x)
             if results[0] is None:
-                impossible.append((child,False))
+                impossible.append((child, False))
         return self.reduceSuccessors(impossible)
 
     def getSuccessorConstraints(self, xxx_todo_changeme):
@@ -74,14 +79,20 @@ class Switch(BaseJump):
         if block in self.reverse:
             cmin = min(self.reverse[block])
             cmax = max(self.reverse[block])
+
             def propagateConstraints(x):
                 if x is None:
-                    return None,
-                return IntConstraint.range(x.width, max(cmin, x.min), min(cmax, x.max)),
+                    return (None,)
+                return (
+                    IntConstraint.range(x.width, max(cmin, x.min), min(cmax, x.max)),
+                )
+
         else:
             allcases = set().union(*list(self.reverse.values()))
+
             def propagateConstraints(x):
                 if x is None or (x.min == x.max and x.min in allcases):
-                    return None,
-                return x,
+                    return (None,)
+                return (x,)
+
         return propagateConstraints

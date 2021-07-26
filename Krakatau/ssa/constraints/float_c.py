@@ -4,10 +4,12 @@ from ..mixin import ValueType
 
 SPECIALS = frozenset((fu.NAN, fu.INF, fu.NINF, fu.ZERO, fu.NZERO))
 
+
 def botRange(size):
     mbits, emin, emax = size
-    mag = (1<<(mbits+1))-1, emax-mbits
-    return (-1,mag), (1,mag)
+    mag = (1 << (mbits + 1)) - 1, emax - mbits
+    return (-1, mag), (1, mag)
+
 
 class FloatConstraint(ValueType):
     def __init__(self, size, finite, special):
@@ -28,9 +30,10 @@ class FloatConstraint(ValueType):
         finite = botRange(size)
         return FloatConstraint(size, finite, SPECIALS)
 
-    def _key(self): return self.finite, self.spec
+    def _key(self):
+        return self.finite, self.spec
 
-    def join(*cons): # more precise (intersection)
+    def join(*cons):  # more precise (intersection)
         spec = frozenset.intersection(*[c.spec for c in cons])
         ranges = [c.finite for c in cons]
 
@@ -48,7 +51,7 @@ class FloatConstraint(ValueType):
 
     def meet(*cons):
         spec = frozenset.union(*[c.spec for c in cons])
-        ranges = [c.finite for c in cons if c.finite != (None,None)]
+        ranges = [c.finite for c in cons if c.finite != (None, None)]
 
         if ranges:
             mins, maxs = list(zip(*ranges))

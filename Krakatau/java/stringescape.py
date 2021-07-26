@@ -1,9 +1,16 @@
 # double quote, backslash, and newlines are forbidden
-ok_chars =  " !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+ok_chars = " !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 ok_chars = frozenset(ok_chars)
 
 # these characters cannot use unicode escape codes due to the way Java escaping works
-late_escape = {'\u0009':r'\t', '\u000a':r'\n', '\u000d':r'\r', '\u0022':r'\"', '\u005c':r'\\'}
+late_escape = {
+    "\u0009": r"\t",
+    "\u000a": r"\n",
+    "\u000d": r"\r",
+    "\u0022": r"\"",
+    "\u005c": r"\\",
+}
+
 
 def escapeString(u: str):
     if isinstance(u, bytes):
@@ -21,10 +28,10 @@ def escapeString(u: str):
         else:
             i = ord(str(c))
             if i <= 0xFFFF:
-                escaped.append(r'\u{0:04x}'.format(i))
+                escaped.append(r"\u{0:04x}".format(i))
             else:
                 i -= 0x10000
-                high = 0xD800 + (i>>10)
+                high = 0xD800 + (i >> 10)
                 low = 0xDC00 + (i & 0x3FF)
-                escaped.append(r'\u{0:04x}\u{1:04x}'.format(high,low))
-    return ''.join(escaped)
+                escaped.append(r"\u{0:04x}\u{1:04x}".format(high, low))
+    return "".join(escaped)

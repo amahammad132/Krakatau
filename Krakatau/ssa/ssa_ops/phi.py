@@ -1,11 +1,12 @@
 from .base import BaseOp
 
+
 class Phi(object):
-    __slots__ = 'block dict rval'.split()
+    __slots__ = "block dict rval".split()
     has_side_effects = False
 
     def __init__(self, block, rval):
-        self.block = block # used in constraint propagation
+        self.block = block  # used in constraint propagation
         self.dict = {}
         self.rval = rval
         assert rval is not None and rval.origin is None
@@ -18,10 +19,14 @@ class Phi(object):
         self.dict[key] = val
 
     @property
-    def params(self): return [self.dict[k] for k in self.block.predecessors]
+    def params(self):
+        return [self.dict[k] for k in self.block.predecessors]
 
-    def get(self, key): return self.dict[key]
-    def delete(self, key): del self.dict[key]
+    def get(self, key):
+        return self.dict[key]
+
+    def delete(self, key):
+        del self.dict[key]
 
     # Copy these over from BaseOp so we don't need to inherit
     def replaceVars(self, rdict):
@@ -34,6 +39,7 @@ class Phi(object):
     def removeOutput(self, var):
         assert var == self.rval
         self.rval = None
+
 
 # An extended basic block can contain multiple throwing instructions
 # but the OnException jump expects a single param. The solution is

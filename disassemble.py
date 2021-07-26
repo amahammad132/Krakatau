@@ -17,24 +17,39 @@ from Krakatau.classfileformat.reader import Reader
 from Krakatau.classfileformat.classdata import ClassData
 from Krakatau.assembler.disassembly import Disassembler
 
+
 def readArchive(archive, name):
-    with archive.open(name.decode('utf8')) as f:
+    with archive.open(name.decode("utf8")) as f:
         return f.read()
 
+
 def readFile(filename):
-    with open(filename, 'rb') as f:
+    with open(filename, "rb") as f:
         return f.read()
+
 
 def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=True):
     start_time = time.time()
     with out:
         for i, target in enumerate(targets):
-            print('processing target {}, {}/{} remaining'.format(target.decode(), len(targets)-i, len(targets)))
+            print(
+                "processing target {}, {}/{} remaining".format(
+                    target.decode(), len(targets) - i, len(targets)
+                )
+            )
 
             data = readTarget(target)
-            if not data.startswith(b'\xca\xfe\xba\xbe'):
-                print('Warning! Skipping {} since it is not a valid classfile.'.format(target))
-                print('File begins with {!r}, expected {!r}'.format(data[:4], b'\xca\xfe\xba\xbe'))
+            if not data.startswith(b"\xca\xfe\xba\xbe"):
+                print(
+                    "Warning! Skipping {} since it is not a valid classfile.".format(
+                        target
+                    )
+                )
+                print(
+                    "File begins with {!r}, expected {!r}".format(
+                        data[:4], b"\xca\xfe\xba\xbe"
+                    )
+                )
                 continue
 
             clsdata = ClassData(Reader(data))
@@ -42,7 +57,7 @@ def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=Tr
             if outputClassName:
                 name = clsdata.pool.getclsutf(clsdata.this)
             else:
-                name = target.rpartition('.')[0] or target
+                name = target.rpartition(".")[0] or target
 
             output = StringIO()
             # output = sys.stdout
@@ -50,34 +65,49 @@ def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=Tr
 
             filename = out.write(name, output.getvalue())
             if filename is not None:
-                print('Class written to', filename)
-                print(f'{time.time() - start_time:.3f} seconds elapsed')
+                print("Class written to", filename)
+                print(f"{time.time() - start_time:.3f} seconds elapsed")
+
 
 def main(args):
     print(script_util.copyright)
 
-    targets = script_util.findFiles(args.target, args.r, '.class')
+    targets = script_util.findFiles(args.target, args.r, ".class")
 
     jar = args.path
-    if jar is None and args.target.endswith('.jar'):
+    if jar is None and args.target.endswith(".jar"):
         jar = args.target
 
-    out = script_util.makeWriter(args.out, '.j')
+    out = script_util.makeWriter(args.out, ".j")
     if jar is not None:
-        with zipfile.ZipFile(jar, 'r') as archive:
+        with zipfile.ZipFile(jar, "r") as archive:
             readFunc = functools.partial(readArchive, archive)
             disassembleSub(readFunc, out, targets, roundtrip=args.roundtrip)
     else:
-        disassembleSub(readFile, out, targets, roundtrip=args.roundtrip, outputClassName=False)
+        disassembleSub(
+            readFile, out, targets, roundtrip=args.roundtrip, outputClassName=False
+        )
+
 
 def set_parser_opts(parser):
-    parser.add_argument('-out', help='Path to generate files in')
-    parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
-    parser.add_argument('-path', help='Jar to look for class in')
-    parser.add_argument('-roundtrip', action='store_true', help='Create assembly file that can roundtrip to original binary.')
-    parser.add_argument('target', help='Name of class or jar file to disassemble')
+    parser.add_argument("-out", help="Path to generate files in")
+    parser.add_argument(
+        "-r",
+        action="store_true",
+        help="Process all files in the directory target and subdirectories",
+    )
+    parser.add_argument("-path", help="Jar to look for class in")
+    parser.add_argument(
+        "-roundtrip",
+        action="store_true",
+        help="Create assembly file that can roundtrip to original binary.",
+    )
+    parser.add_argument("target", help="Name of class or jar file to disassemble")
 
-if __name__== "__main__":
-    parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Krakatau decompiler and bytecode analysis tool"
+    )
     set_parser_opts(parser)
     main(parser.parse_args())

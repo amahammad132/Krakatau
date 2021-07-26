@@ -6,6 +6,7 @@ from ..ssa_types import SSA_OBJECT, verifierToSSAType
 
 from .base import BaseOp
 
+
 class Invoke(BaseOp):
     has_side_effects = True
 
@@ -14,7 +15,9 @@ class Invoke(BaseOp):
 
         self.instruction = instr
         self.target, self.name, self.desc = info
-        self.isThisCtor = isThisCtor # whether this is a ctor call for the current class
+        self.isThisCtor = (
+            isThisCtor  # whether this is a ctor call for the current class
+        )
         self.target_tt = target_tt
         vtypes = parseMethodDescriptor(self.desc)[1]
 
@@ -28,15 +31,19 @@ class Invoke(BaseOp):
                 dtype = target_tt
 
             self.rval = parent.makeVariable(stype, origin=self)
-            self.returned = [self.rval] + [None]*(cat-1)
+            self.returned = [self.rval] + [None] * (cat - 1)
         else:
             self.rval, self.returned = None, []
 
         # just use a fixed constraint until we can do interprocedural analysis
         # output order is rval, exception, defined by BaseOp.getOutputs
         env = parent.env
-        self.eout = ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [], nonnull=True)
-        self.eout_npe = ObjectConstraint.fromTops(env, [excepttypes.NullPtr], [], nonnull=True)
+        self.eout = ObjectConstraint.fromTops(
+            env, [objtypes.ThrowableTT], [], nonnull=True
+        )
+        self.eout_npe = ObjectConstraint.fromTops(
+            env, [excepttypes.NullPtr], [], nonnull=True
+        )
         if self.rval is not None:
             if self.rval.type == SSA_OBJECT:
                 supers, exact = objtypes.declTypeToActual(env, dtype)
@@ -47,9 +54,10 @@ class Invoke(BaseOp):
             self.rout = None
 
     def propagateConstraints(self, *incons):
-        if self.instruction[0] != 'invokestatic' and incons[0].isConstNull():
+        if self.instruction[0] != "invokestatic" and incons[0].isConstNull():
             return throw(self.eout_npe)
         return returnOrThrow(self.rout, self.eout)
+
 
 # TODO - cleanup
 class InvokeDynamic(BaseOp):
@@ -66,14 +74,16 @@ class InvokeDynamic(BaseOp):
             dtype = objtypes.verifierToSynthetic(vtypes[0])
             cat = len(vtypes)
             self.rval = parent.makeVariable(stype, origin=self)
-            self.returned = [self.rval] + [None]*(cat-1)
+            self.returned = [self.rval] + [None] * (cat - 1)
         else:
             self.rval, self.returned = None, []
 
         # just use a fixed constraint until we can do interprocedural analysis
         # output order is rval, exception, defined by BaseOp.getOutputs
         env = parent.env
-        self.eout = ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [], nonnull=True)
+        self.eout = ObjectConstraint.fromTops(
+            env, [objtypes.ThrowableTT], [], nonnull=True
+        )
         if self.rval is not None:
             if self.rval.type == SSA_OBJECT:
                 supers, exact = objtypes.declTypeToActual(env, dtype)

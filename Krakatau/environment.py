@@ -1,10 +1,10 @@
-
 import os.path
 import zipfile
 
 from .classfile import ClassFile
 from .classfileformat.reader import Reader
 from .error import ClassLoaderError
+
 
 class Environment(object):
     def __init__(self):
@@ -28,10 +28,10 @@ class Environment(object):
         return result
 
     def isSubclass(self, name1, name2):
-        if name2 == 'java/lang/Object':
+        if name2 == "java/lang/Object":
             return True
 
-        while name1 != 'java/lang/Object':
+        while name1 != "java/lang/Object":
             if name1 == name2:
                 return True
             name1 = self._getSuper(name1)
@@ -40,7 +40,7 @@ class Environment(object):
     def commonSuperclass(self, name1, name2):
         a, b = name1, name2
         supers = {a}
-        while a != b and a != 'java/lang/Object':
+        while a != b and a != "java/lang/Object":
             a = self._getSuper(a)
             supers.add(a)
 
@@ -51,7 +51,7 @@ class Environment(object):
     def isInterface(self, name, forceCheck=False):
         try:
             class_ = self.getClass(name, partial=True)
-            return 'INTERFACE' in class_.flags
+            return "INTERFACE" in class_.flags
         except ClassLoaderError as e:
             if forceCheck:
                 raise e
@@ -61,23 +61,23 @@ class Environment(object):
     def isFinal(self, name):
         try:
             class_ = self.getClass(name, partial=True)
-            return 'FINAL' in class_.flags
+            return "FINAL" in class_.flags
         except ClassLoaderError as e:
             return False
 
     def _searchForFile(self, name):
-        name += '.class'
+        name += ".class"
         for place in self.path:
             try:
                 archive = self._open[place]
-            except KeyError: # plain folder
+            except KeyError:  # plain folder
                 try:
                     path = os.path.join(place, name)
-                    with open(path, 'rb') as file_:
+                    with open(path, "rb") as file_:
                         return file_.read()
                 except IOError:
-                    print('failed to open', path.encode('utf8'))
-            else: # zip archive
+                    print("failed to open", path.encode("utf8"))
+            else:  # zip archive
                 try:
                     return archive.read(name)
                 except KeyError:
@@ -88,7 +88,7 @@ class Environment(object):
         data = self._searchForFile(name)
 
         if data is None:
-            raise ClassLoaderError('ClassNotFoundException', name)
+            raise ClassLoaderError("ClassNotFoundException", name)
 
         stream = Reader(data=data)
         new = ClassFile(stream)
@@ -100,8 +100,8 @@ class Environment(object):
     def __enter__(self):
         assert not self._open
         for place in self.path:
-            if place.endswith('.jar') or place.endswith('.zip'):
-                self._open[place] = zipfile.ZipFile(place, 'r').__enter__()
+            if place.endswith(".jar") or place.endswith(".zip"):
+                self._open[place] = zipfile.ZipFile(place, "r").__enter__()
         return self
 
     def __exit__(self, type_, value, traceback):

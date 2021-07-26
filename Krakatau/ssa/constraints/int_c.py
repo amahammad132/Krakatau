@@ -1,5 +1,6 @@
 from ..mixin import ValueType
 
+
 class IntConstraint(ValueType):
     __slots__ = "width min max".split()
 
@@ -21,9 +22,10 @@ class IntConstraint(ValueType):
 
     @staticmethod
     def bot(width):
-        return IntConstraint(width, -1<<(width-1), (1<<(width-1))-1)
+        return IntConstraint(width, -1 << (width - 1), (1 << (width - 1)) - 1)
 
-    def _key(self): return self.min, self.max
+    def _key(self):
+        return self.min, self.max
 
     def join(*cons):
         xmin = max(c.min for c in cons)
@@ -38,11 +40,12 @@ class IntConstraint(ValueType):
         xmax = max(c.max for c in cons)
         return IntConstraint(cons[0].width, xmin, xmax)
 
-    def __str__(self):   # pragma: no cover
-        t = 'Int' if self.width == 32 else 'Long'
+    def __str__(self):  # pragma: no cover
+        t = "Int" if self.width == 32 else "Long"
         if self.min == self.max:
-            return '{}({})'.format(t, self.min)
+            return "{}({})".format(t, self.min)
         elif self == self.bot(self.width):
             return t
-        return '{}({}, {})'.format(t, self.min, self.max)
+        return "{}({}, {})".format(t, self.min, self.max)
+
     __repr__ = __str__

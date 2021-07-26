@@ -3,6 +3,7 @@ from ..constraints import ObjectConstraint, maybeThrow
 
 from .base import BaseOp
 
+
 class Monitor(BaseOp):
     has_side_effects = True
 

@@ -9,14 +9,18 @@ from ..verifier.descriptors import parseMethodDescriptor
 
 from . import ast, ast2, astgen, boolize, graphproxy, mergevariables, structuring
 
+
 class DeclInfo(object):
     __slots__ = "declScope scope defs".split()
+
     def __init__(self):
         self.declScope = self.scope = None
         self.defs = []
 
+
 def findVarDeclInfo(root, predeclared):
     info = collections.OrderedDict()
+
     def visit(scope, expr):
         for param in expr.params:
             visit(scope, param)
@@ -37,13 +41,13 @@ def findVarDeclInfo(root, predeclared):
     for expr in predeclared:
         visitDeclExpr(root, expr)
 
-    stack = [(root,root)]
+    stack = [(root, root)]
     while stack:
         scope, stmt = stack.pop()
         if isinstance(stmt, ast.StatementBlock):
-            stack.extend((stmt,sub) for sub in stmt.statements)
+            stack.extend((stmt, sub) for sub in stmt.statements)
         else:
-            stack.extend((subscope,subscope) for subscope in stmt.getScopes())
+            stack.extend((subscope, subscope) for subscope in stmt.getScopes())
             # temp hack
             if stmt.expr is not None:
                 visit(scope, stmt.expr)
@@ -51,6 +55,7 @@ def findVarDeclInfo(root, predeclared):
                 for catchdecl, body in stmt.pairs:
                     visitDeclExpr(body, catchdecl.local)
     return info
+
 
 def reverseBoolExpr(expr):
     assert expr.dtype == objtypes.BoolTT
@@ -61,11 +66,14 @@ def reverseBoolExpr(expr):
             sym2 = symbols[symbols.index(expr.opstr) ^ 1]
             left, right = expr.params
             # be sure not to reverse floating point comparisons since it's not equivalent for NaN
-            if expr.opstr in symbols[:2] or (left.dtype not in floatts and right.dtype not in floatts):
+            if expr.opstr in symbols[:2] or (
+                left.dtype not in floatts and right.dtype not in floatts
+            ):
                 return ast.BinaryInfix(sym2, [left, right], objtypes.BoolTT)
-    elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == '!':
+    elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == "!":
         return expr.params[0]
-    return ast.UnaryPrefix('!', expr)
+    return ast.UnaryPrefix("!", expr)
+
 
 def getSubscopeIter(root):
     stack = [root]
@@ -76,6 +84,7 @@ def getSubscopeIter(root):
             yield scope
         else:
             stack.extend(scope.getScopes())
+
 
 def mayBreakTo(root, forbidden):
     assert None not in forbidden
@@ -100,7 +109,10 @@ def mayBreakTo(root, forbidden):
                     return True
                 if isinstance(last, ast.SwitchStatement) and not last.hasDefault():
                     return True
-                if isinstance(last, ast.WhileStatement) and last.expr != ast.Literal.TRUE:
+                if (
+                    isinstance(last, ast.WhileStatement)
+                    and last.expr != ast.Literal.TRUE
+                ):
                     return True
 
                 if not isinstance(last, ast.WhileStatement):
@@ -108,9 +120,10 @@ def mayBreakTo(root, forbidden):
                         assert sub.breakKey == last.breakKey == scope.jumpKey
     return False
 
+
 def replaceKeys(top, replace):
     assert None not in replace
-    get = lambda k:replace.get(k,k)
+    get = lambda k: replace.get(k, k)
 
     if top.getScopes():
         if isinstance(top, ast.StatementBlock) and get(top.breakKey) is None:
@@ -127,7 +140,10 @@ def replaceKeys(top, replace):
             for scope in top.getScopes():
                 replaceKeys(scope, replace)
 
+
 NONE_SET = frozenset([None])
+
+
 def _preorder(scope, func):
     newitems = []
     for i, item in enumerate(scope.statements):
@@ -139,22 +155,26 @@ def _preorder(scope, func):
         newitems.extend(vals)
     scope.statements = newitems
 
+
 def _fixObjectCreations(scope, item):
-    '''Combines new/invokeinit pairs into Java constructor calls'''
+    """Combines new/invokeinit pairs into Java constructor calls"""
     # Thanks to the uninitialized variable merging prior to AST generation,
     # we can safely assume there are no copies to worry about
     expr = item.expr
     if isinstance(expr, ast.Assignment):
         left, right = expr.params
         if isinstance(right, ast.Dummy) and right.isNew:
-            return [] # remove item
-    elif isinstance(expr, ast.MethodInvocation) and expr.name == '<init>':
+            return []  # remove item
+    elif isinstance(expr, ast.MethodInvocation) and expr.name == "<init>":
         left = expr.params[0]
-        newexpr = ast.ClassInstanceCreation(ast.TypeName(left.dtype), expr.tts[1:], expr.params[1:])
+        newexpr = ast.ClassInstanceCreation(
+            ast.TypeName(left.dtype), expr.tts[1:], expr.params[1:]
+        )
         item.expr = ast.Assignment(left, newexpr)
 
+
 def _pruneRethrow_cb(item):
-    '''Convert try{A} catch(T t) {throw t;} to {A}'''
+    """Convert try{A} catch(T t) {throw t;} to {A}"""
     while item.pairs:
         decl, body = item.pairs[-1]
         caught, lines = decl.local, body.statements
@@ -174,8 +194,9 @@ def _pruneRethrow_cb(item):
         return new
     return item
 
+
 def _pruneIfElse_cb(item):
-    '''Convert if(A) {B} else {} to if(A) {B}'''
+    """Convert if(A) {B} else {} to if(A) {B}"""
     if len(item.scopes) > 1:
         tblock, fblock = item.scopes
 
@@ -185,7 +206,7 @@ def _pruneIfElse_cb(item):
             tblock, fblock = item.scopes = fblock, tblock
 
         if not fblock.statements and fblock.doesFallthrough():
-            item.scopes = tblock,
+            item.scopes = (tblock,)
 
     # if(A) {B throw/return ... } else {C} -> if(A) {B throw/return ...} {C}
     if len(item.scopes) > 1:
@@ -210,29 +231,34 @@ def _pruneIfElse_cb(item):
 
         if priority(tblock) < (3, 0):
             assert tblock.statements or not tblock.doesFallthrough()
-            item.scopes = tblock,
+            item.scopes = (tblock,)
             item.breakKey = fblock.continueKey
             fblock.labelable = True
             return [item], fblock
 
         # If cond is !(x), reverse it back to simplify cond
-        if isinstance(item.expr, ast.UnaryPrefix) and item.expr.opstr == '!':
+        if isinstance(item.expr, ast.UnaryPrefix) and item.expr.opstr == "!":
             item.expr = reverseBoolExpr(item.expr)
             tblock, fblock = item.scopes = fblock, tblock
 
     # if(A) {if(B) {C}} -> if(A && B) {C}
     tblock = item.scopes[0]
-    if len(item.scopes) == 1 and len(tblock.statements) == 1 and tblock.doesFallthrough():
+    if (
+        len(item.scopes) == 1
+        and len(tblock.statements) == 1
+        and tblock.doesFallthrough()
+    ):
         first = tblock.statements[0]
         if isinstance(first, ast.IfStatement) and len(first.scopes) == 1:
-            item.expr = ast.BinaryInfix('&&',[item.expr, first.expr], objtypes.BoolTT)
+            item.expr = ast.BinaryInfix("&&", [item.expr, first.expr], objtypes.BoolTT)
             item.scopes = first.scopes
     return [], item
 
+
 def _whileCondition_cb(item):
-    '''Convert while(true) {if(A) {B break;} else {C} D} to while(!A) {{C} D} {B}
-        and while(A) {if(B) {break;} else {C} D} to while(A && !B) {{C} D}'''
-    failure = [], item # what to return if we didn't inline
+    """Convert while(true) {if(A) {B break;} else {C} D} to while(!A) {{C} D} {B}
+    and while(A) {if(B) {break;} else {C} D} to while(A && !B) {{C} D}"""
+    failure = [], item  # what to return if we didn't inline
     body = item.getScopes()[0]
     if not body.statements or not isinstance(body.statements[0], ast.IfStatement):
         return failure
@@ -251,7 +277,6 @@ def _whileCondition_cb(item):
             return failure
     assert not mayBreakTo(trueb, badjumps1)
 
-
     trivial = not trueb.statements and trueb.jumpKey == item.breakKey
     # If we already have a condition, only a simple break is allowed
     if not trivial and item.expr != ast.Literal.TRUE:
@@ -263,11 +288,15 @@ def _whileCondition_cb(item):
     if not trivial:
         restloop = [falseb] if falseb is not None else []
         restloop += body.statements[1:]
-        if body.jumpKey == item.breakKey or any(mayBreakTo(s, badjumps2) for s in restloop):
+        if body.jumpKey == item.breakKey or any(
+            mayBreakTo(s, badjumps2) for s in restloop
+        ):
             return failure
 
     # Now inline everything
-    item.expr = _simplifyExpressions(ast.BinaryInfix('&&', [item.expr, reverseBoolExpr(cond)]))
+    item.expr = _simplifyExpressions(
+        ast.BinaryInfix("&&", [item.expr, reverseBoolExpr(cond)])
+    )
     if falseb is None:
         body.continueKey = body.statements.pop(0).breakKey
     else:
@@ -276,7 +305,9 @@ def _whileCondition_cb(item):
         falseb.labelable = True
     trueb.labelable = True
 
-    if item.breakKey is None: # Make sure to maintain invariant that bkey=None -> jkey=None
+    if (
+        item.breakKey is None
+    ):  # Make sure to maintain invariant that bkey=None -> jkey=None
         assert trueb.doesFallthrough()
         trueb.jumpKey = trueb.breakKey = None
     trueb.breakKey = item.breakKey
@@ -287,8 +318,9 @@ def _whileCondition_cb(item):
     # Trueb doesn't break to head.bkey but there might be unreacahble jumps, so we replace
     # it too. We don't replace item.ckey because it should never appear, even as an
     # unreachable jump
-    replaceKeys(trueb, {head.breakKey:trueb.breakKey, item.breakKey:trueb.breakKey})
+    replaceKeys(trueb, {head.breakKey: trueb.breakKey, item.breakKey: trueb.breakKey})
     return [item], trueb
+
 
 def _simplifyBlocksSub(scope, item, isLast):
     rest = []
@@ -308,7 +340,11 @@ def _simplifyBlocksSub(scope, item, isLast):
             rest, item.statements = rest + item.statements, []
         # Now inline statements at the beginning of the scope that don't need to break to it
         for sub in item.statements[:]:
-            if sub.getScopes() and sub.breakKey != bkey and mayBreakTo(sub, frozenset([bkey])):
+            if (
+                sub.getScopes()
+                and sub.breakKey != bkey
+                and mayBreakTo(sub, frozenset([bkey]))
+            ):
                 break
             rest.append(item.statements.pop(0))
 
@@ -320,12 +356,13 @@ def _simplifyBlocksSub(scope, item, isLast):
             return rest
     return rest + [item]
 
+
 def _simplifyBlocks(scope):
     newitems = []
     for item in reversed(scope.statements):
-        isLast = not newitems # may be true if all subsequent items pruned
+        isLast = not newitems  # may be true if all subsequent items pruned
         if isLast and item.getScopes():
-            if item.breakKey != scope.jumpKey:# and item.breakKey is not None:
+            if item.breakKey != scope.jumpKey:  # and item.breakKey is not None:
                 replaceKeys(item, {item.breakKey: scope.jumpKey})
 
         for sub in reversed(item.getScopes()):
@@ -335,27 +372,29 @@ def _simplifyBlocks(scope):
     scope.statements = newitems[::-1]
 
 
-_op2bits = {'==':2, '!=':13, '<':1, '<=':3, '>':4, '>=':6}
-_bit2ops_float = {v:k for k,v in list(_op2bits.items())}
-_bit2ops = {(v & 7):k for k,v in list(_op2bits.items())}
+_op2bits = {"==": 2, "!=": 13, "<": 1, "<=": 3, ">": 4, ">=": 6}
+_bit2ops_float = {v: k for k, v in list(_op2bits.items())}
+_bit2ops = {(v & 7): k for k, v in list(_op2bits.items())}
+
 
 def _getBitfield(expr):
     if isinstance(expr, ast.BinaryInfix):
-        if expr.opstr in ('==','!=','<','<=','>','>='):
+        if expr.opstr in ("==", "!=", "<", "<=", ">", ">="):
             # We don't want to merge expressions if they could have side effects
             # so only allow literals and locals
             if all(isinstance(p, (ast.Literal, ast.Local)) for p in expr.params):
                 return _op2bits[expr.opstr], list(expr.params)
-        elif expr.opstr in ('&','&&','|','||'):
+        elif expr.opstr in ("&", "&&", "|", "||"):
             bits1, args1 = _getBitfield(expr.params[0])
             bits2, args2 = _getBitfield(expr.params[1])
             if args1 == args2:
-                bits = (bits1 & bits2) if '&' in expr.opstr else (bits1 | bits2)
+                bits = (bits1 & bits2) if "&" in expr.opstr else (bits1 | bits2)
                 return bits, args1
-    elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == '!':
+    elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == "!":
         bits, args = _getBitfield(expr.params[0])
         return ~bits, args
     return 0, None
+
 
 def _mergeComparisons(expr):
     # a <= b && a != b -> a < b, etc.
@@ -379,13 +418,14 @@ def _mergeComparisons(expr):
     elif bits in d:
         return ast.BinaryInfix(d[bits], args, objtypes.BoolTT)
     elif notbits in d:
-        return ast.UnaryPrefix('!', ast.BinaryInfix(d[notbits], args, objtypes.BoolTT))
+        return ast.UnaryPrefix("!", ast.BinaryInfix(d[notbits], args, objtypes.BoolTT))
     return expr
+
 
 def _simplifyExpressions(expr):
     TRUE, FALSE = ast.Literal.TRUE, ast.Literal.FALSE
-    bools = {True:TRUE, False:FALSE}
-    opfuncs = {'<': operator.lt, '<=': operator.le, '>': operator.gt, '>=': operator.ge}
+    bools = {True: TRUE, False: FALSE}
+    opfuncs = {"<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge}
 
     simplify = _simplifyExpressions
     expr.params = list(map(simplify, expr.params))
@@ -393,38 +433,44 @@ def _simplifyExpressions(expr):
     if isinstance(expr, ast.BinaryInfix):
         left, right = expr.params
         op = expr.opstr
-        if op in ('==','!=','<','<=','>','>=') and isinstance(right, ast.Literal):
+        if op in ("==", "!=", "<", "<=", ">", ">=") and isinstance(right, ast.Literal):
             # la cmp lb -> result (i.e. constant propagation on literal comparisons)
             if isinstance(left, ast.Literal):
-                if op in ('==','!='):
+                if op in ("==", "!="):
                     # these could be string or class literals, but those are always nonnull so it still works
-                    res = (left == right) == (op == '==')
+                    res = (left == right) == (op == "==")
                 else:
                     assert left.dtype == right.dtype
                     res = opfuncs[op](left.val, right.val)
                 expr = bools[res]
             # (a ? lb : c) cmp ld -> a ? (lb cmp ld) : (c cmp ld)
-            elif isinstance(left, ast.Ternary) and isinstance(left.params[1], ast.Literal):
-                left.params[1] = simplify(ast.BinaryInfix(op, [left.params[1], right], expr._dtype))
-                left.params[2] = simplify(ast.BinaryInfix(op, [left.params[2], right], expr._dtype))
+            elif isinstance(left, ast.Ternary) and isinstance(
+                left.params[1], ast.Literal
+            ):
+                left.params[1] = simplify(
+                    ast.BinaryInfix(op, [left.params[1], right], expr._dtype)
+                )
+                left.params[2] = simplify(
+                    ast.BinaryInfix(op, [left.params[2], right], expr._dtype)
+                )
                 expr = left
 
     # a ? true : b -> a || b
     # a ? false : b -> !a && b
     if isinstance(expr, ast.Ternary) and expr.dtype == objtypes.BoolTT:
         cond, val1, val2 = expr.params
-        if not isinstance(val1, ast.Literal): # try to get bool literal to the front
+        if not isinstance(val1, ast.Literal):  # try to get bool literal to the front
             cond, val1, val2 = reverseBoolExpr(cond), val2, val1
 
         if val1 == TRUE:
-            expr = ast.BinaryInfix('||', [cond, val2], objtypes.BoolTT)
+            expr = ast.BinaryInfix("||", [cond, val2], objtypes.BoolTT)
         elif val1 == FALSE:
-            expr = ast.BinaryInfix('&&', [reverseBoolExpr(cond), val2], objtypes.BoolTT)
+            expr = ast.BinaryInfix("&&", [reverseBoolExpr(cond), val2], objtypes.BoolTT)
 
     # true && a -> a, etc.
-    if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('&&','||'):
+    if isinstance(expr, ast.BinaryInfix) and expr.opstr in ("&&", "||"):
         left, right = expr.params
-        if expr.opstr == '&&':
+        if expr.opstr == "&&":
             if left == TRUE or (right == FALSE and not hasSideEffects(left)):
                 expr = right
             elif left == FALSE or right == TRUE:
@@ -439,24 +485,28 @@ def _simplifyExpressions(expr):
 
     # a == true -> a
     # a == false -> !a
-    if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==, !=') and expr.params[0].dtype == objtypes.BoolTT:
+    if (
+        isinstance(expr, ast.BinaryInfix)
+        and expr.opstr in ("==, !=")
+        and expr.params[0].dtype == objtypes.BoolTT
+    ):
         left, right = expr.params
-        if not isinstance(left, ast.Literal): # try to get bool literal to the front
+        if not isinstance(left, ast.Literal):  # try to get bool literal to the front
             left, right = right, left
         if isinstance(left, ast.Literal):
-            flip = (left == TRUE) != (expr.opstr == '==')
+            flip = (left == TRUE) != (expr.opstr == "==")
             expr = reverseBoolExpr(right) if flip else right
 
     # !a ? b : c -> a ? c : b
     if isinstance(expr, ast.Ternary) and isinstance(expr.params[0], ast.UnaryPrefix):
         cond, val1, val2 = expr.params
-        if cond.opstr == '!':
+        if cond.opstr == "!":
             expr.params = [reverseBoolExpr(cond), val2, val1]
 
     # 0 - a -> -a
-    if isinstance(expr, ast.BinaryInfix) and expr.opstr == '-':
+    if isinstance(expr, ast.BinaryInfix) and expr.opstr == "-":
         if expr.params[0] == ast.Literal.ZERO or expr.params[0] == ast.Literal.LZERO:
-            expr = ast.UnaryPrefix('-', expr.params[1])
+            expr = ast.UnaryPrefix("-", expr.params[1])
 
     # (double)4.2f -> 4.2, etc.
     if isinstance(expr, ast.Cast) and isinstance(expr.params[1], ast.Literal):
@@ -464,11 +514,13 @@ def _simplifyExpressions(expr):
 
     return expr
 
+
 def _setScopeParents(scope):
     for item in scope.statements:
         for sub in item.getScopes():
             sub.bases = scope.bases + (sub,)
             _setScopeParents(sub)
+
 
 def _replaceExpressions(scope, item, rdict):
     # Must be done before local declarations are created since it doesn't touch/remove them
@@ -482,6 +534,7 @@ def _replaceExpressions(scope, item, rdict):
             return []
     return [item]
 
+
 def _oldMergeVariables(root, predeclared):
     _setScopeParents(root)
     info = findVarDeclInfo(root, predeclared)
@@ -490,12 +543,16 @@ def _oldMergeVariables(root, predeclared):
     forbidden = set()
     # If var has any defs which aren't a literal or local, mark it as a leaf node (it can't be merged into something)
     for var in lvars:
-        if not all(isinstance(expr, (ast.Local, ast.Literal)) for expr in info[var].defs):
+        if not all(
+            isinstance(expr, (ast.Local, ast.Literal)) for expr in info[var].defs
+        ):
             forbidden.add(var)
         elif info[var].declScope is not None:
             forbidden.add(var)
 
-    sccs = graph_util.tarjanSCC(lvars, lambda var:([] if var in forbidden else info[var].defs))
+    sccs = graph_util.tarjanSCC(
+        lvars, lambda var: ([] if var in forbidden else info[var].defs)
+    )
     # the sccs will be in topolgical order
     varmap = {}
     for scc in sccs:
@@ -509,11 +566,18 @@ def _oldMergeVariables(root, predeclared):
                 target = alldefs[0]
                 if all(var.dtype == target.dtype for var in scc):
                     scope = ast.StatementBlock.join(*(info[var].scope for var in scc))
-                    scope = ast.StatementBlock.join(scope, info[target].declScope) # scope is unchanged if declScope is none like usual
-                    if info[target].declScope is None or info[target].declScope == scope:
+                    scope = ast.StatementBlock.join(
+                        scope, info[target].declScope
+                    )  # scope is unchanged if declScope is none like usual
+                    if (
+                        info[target].declScope is None
+                        or info[target].declScope == scope
+                    ):
                         for var in scc:
                             varmap[var] = target
-                        info[target].scope = ast.StatementBlock.join(scope, info[target].scope)
+                        info[target].scope = ast.StatementBlock.join(
+                            scope, info[target].scope
+                        )
                         continue
         # fallthrough if merging is impossible
         for var in scc:
@@ -522,23 +586,36 @@ def _oldMergeVariables(root, predeclared):
                 forbidden.add(var)
     _preorder(root, partial(_replaceExpressions, rdict=varmap))
 
+
 def _mergeVariables(root, predeclared, isstatic):
     _oldMergeVariables(root, predeclared)
 
     rdict = mergevariables.mergeVariables(root, isstatic, predeclared)
     _preorder(root, partial(_replaceExpressions, rdict=rdict))
 
-_oktypes = ast.BinaryInfix, ast.Local, ast.Literal, ast.Parenthesis, ast.Ternary, ast.TypeName, ast.UnaryPrefix
+
+_oktypes = (
+    ast.BinaryInfix,
+    ast.Local,
+    ast.Literal,
+    ast.Parenthesis,
+    ast.Ternary,
+    ast.TypeName,
+    ast.UnaryPrefix,
+)
+
+
 def hasSideEffects(expr):
     if not isinstance(expr, _oktypes):
         return True
     # check for division by 0. If it's a float or dividing by nonzero literal, it's ok
-    elif isinstance(expr, ast.BinaryInfix) and expr.opstr in ('/','%'):
+    elif isinstance(expr, ast.BinaryInfix) and expr.opstr in ("/", "%"):
         if expr.dtype not in (objtypes.FloatTT, objtypes.DoubleTT):
             divisor = expr.params[-1]
             if not isinstance(divisor, ast.Literal) or divisor.val == 0:
                 return True
     return False
+
 
 def _inlineVariables(root):
     # first find all variables with a single def and use
@@ -565,18 +642,28 @@ def _inlineVariables(root):
         return t1 == t2 or (not ast.isReferenceType(t1) and not ast.isReferenceType(t2))
 
     # These should have 2 uses since the initial assignment also counts
-    replacevars = {k for k,v in list(defs.items())
-        if len(v)==1 and uses[k]==2
-        and equalOrBothPrimativeTypes(v[0].params[1].dtype, k.dtype)}
+    replacevars = {
+        k
+        for k, v in list(defs.items())
+        if len(v) == 1
+        and uses[k] == 2
+        and equalOrBothPrimativeTypes(v[0].params[1].dtype, k.dtype)
+    }
 
     def doReplacement(item, pairs):
         old, new = item.expr.params
         assert isinstance(old, ast.Local)
         if new.dtype != old.dtype:
-            assert not ast.isReferenceType(old.dtype) and not ast.isReferenceType(new.dtype)
+            assert not ast.isReferenceType(old.dtype) and not ast.isReferenceType(
+                new.dtype
+            )
             new = ast.Cast(ast.TypeName(old.dtype), new)
 
-        stack = [(True, (True, item2, expr)) for item2, expr in reversed(pairs) if expr is not None]
+        stack = [
+            (True, (True, item2, expr))
+            for item2, expr in reversed(pairs)
+            if expr is not None
+        ]
         while stack:
             recurse, args = stack.pop()
 
@@ -592,7 +679,11 @@ def _inlineVariables(root):
                 # evaluated part, but we still need to check those parts for
                 # barriers. For both ternaries and short circuit operators, the
                 # first param is always evaluated, so it is safe
-                if isinstance(expr, ast.Ternary) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('&&','||'):
+                if (
+                    isinstance(expr, ast.Ternary)
+                    or isinstance(expr, ast.BinaryInfix)
+                    and expr.opstr in ("&&", "||")
+                ):
                     for param in reversed(expr.params[1:]):
                         stack.append((True, (False, expr, param)))
                     stack.append((True, (canReplace, expr, expr.params[0])))
@@ -615,7 +706,7 @@ def _inlineVariables(root):
                         if isinstance(parent, ast.JavaExpression):
                             params = parent.params = list(parent.params)
                             params[params.index(old)] = new
-                        else: # replacing in a top level statement
+                        else:  # replacing in a top level statement
                             assert parent.expr == old
                             parent.expr = new
                     return canReplace
@@ -631,7 +722,10 @@ def _inlineVariables(root):
             for sub in item.getScopes():
                 visitReplace(sub)
 
-            if isinstance(item.expr, ast.Assignment) and item.expr.params[0] in replacevars:
+            if (
+                isinstance(item.expr, ast.Assignment)
+                and item.expr.params[0] in replacevars
+            ):
                 expr_roots = []
                 for item2 in reversed(newstatements):
                     # Don't inline into a while condition as it may be evaluated more than once
@@ -644,13 +738,19 @@ def _inlineVariables(root):
                     continue
             newstatements.append(item)
         scope.statements = newstatements[::-1]
+
     visitReplace(root)
+
 
 def _createDeclarations(root, predeclared):
     _setScopeParents(root)
     info = findVarDeclInfo(root, predeclared)
     localdefs = collections.defaultdict(list)
-    newvars = [var for var in info if isinstance(var, ast.Local) and info[var].declScope is None]
+    newvars = [
+        var
+        for var in info
+        if isinstance(var, ast.Local) and info[var].declScope is None
+    ]
     remaining = set(newvars)
 
     def mdVisitVarUse(var):
@@ -665,7 +765,7 @@ def _createDeclarations(root, predeclared):
 
     def mdVisitScope(scope):
         if isinstance(scope, ast.StatementBlock):
-            for i,stmt in enumerate(scope.statements):
+            for i, stmt in enumerate(scope.statements):
                 if isinstance(stmt, ast.ExpressionStatement):
                     if isinstance(stmt.expr, ast.Assignment):
                         var, right = stmt.expr.params
@@ -689,47 +789,71 @@ def _createDeclarations(root, predeclared):
     for scope, ldefs in list(localdefs.items()):
         scope.statements = ldefs + scope.statements
 
+
 def _createTernaries(scope, item):
     if isinstance(item, ast.IfStatement) and len(item.getScopes()) == 2:
         block1, block2 = item.getScopes()
 
-        if (len(block1.statements) == len(block2.statements) == 1) and block1.jumpKey == block2.jumpKey:
+        if (
+            len(block1.statements) == len(block2.statements) == 1
+        ) and block1.jumpKey == block2.jumpKey:
             s1, s2 = block1.statements[0], block2.statements[0]
             e1, e2 = s1.expr, s2.expr
 
-            if isinstance(s1, ast.ReturnStatement) and isinstance(s2, ast.ReturnStatement):
+            if isinstance(s1, ast.ReturnStatement) and isinstance(
+                s2, ast.ReturnStatement
+            ):
                 expr = None if e1 is None else ast.Ternary(item.expr, e1, e2)
                 item = ast.ReturnStatement(expr, s1.tt)
-            elif isinstance(s1, ast.ExpressionStatement) and isinstance(s2, ast.ExpressionStatement):
+            elif isinstance(s1, ast.ExpressionStatement) and isinstance(
+                s2, ast.ExpressionStatement
+            ):
                 if isinstance(e1, ast.Assignment) and isinstance(e2, ast.Assignment):
                     # if e1.params[0] == e2.params[0] and max(e1.params[1].complexity(), e2.params[1].complexity()) <= 1:
                     if e1.params[0] == e2.params[0]:
                         expr = ast.Ternary(item.expr, e1.params[1], e2.params[1])
-                        temp = ast.ExpressionStatement(ast.Assignment(e1.params[0], expr))
+                        temp = ast.ExpressionStatement(
+                            ast.Assignment(e1.params[0], expr)
+                        )
 
                         if not block1.doesFallthrough():
                             assert not block2.doesFallthrough()
-                            item = ast.StatementBlock(item.func, item.continueKey, item.breakKey, [temp], block1.jumpKey)
+                            item = ast.StatementBlock(
+                                item.func,
+                                item.continueKey,
+                                item.breakKey,
+                                [temp],
+                                block1.jumpKey,
+                            )
                         else:
                             item = temp
     if item.expr is not None:
         item.expr = _simplifyExpressions(item.expr)
     return [item]
 
+
 def _fixExprStatements(scope, item, namegen):
     if isinstance(item, ast.ExpressionStatement):
         right = item.expr
-        if not isinstance(right, (ast.Assignment, ast.ClassInstanceCreation, ast.MethodInvocation)) and right.dtype is not None:
-            left = ast.Local(right.dtype, lambda expr:namegen.getPrefix('dummy'))
+        if (
+            not isinstance(
+                right, (ast.Assignment, ast.ClassInstanceCreation, ast.MethodInvocation)
+            )
+            and right.dtype is not None
+        ):
+            left = ast.Local(right.dtype, lambda expr: namegen.getPrefix("dummy"))
             decl = ast.VariableDeclarator(ast.TypeName(left.dtype), left)
             item = ast.LocalDeclarationStatement(decl, right)
     return [item]
 
+
 def _fixLiterals(scope, item):
     item.fixLiterals()
 
+
 def _addCastsAndParens(scope, item, env):
     item.addCastsAndParens(env)
+
 
 def _fallsThrough(scope, usedBreakTargets):
     # Check if control reaches end of scope and there is no break statement
@@ -750,11 +874,14 @@ def _fallsThrough(scope, usedBreakTargets):
     if isinstance(last, ast.WhileStatement):
         return last.expr != ast.Literal.TRUE
     elif isinstance(last, ast.SwitchStatement):
-        return not last.hasDefault() or _fallsThrough(last.getScopes()[-1], usedBreakTargets)
+        return not last.hasDefault() or _fallsThrough(
+            last.getScopes()[-1], usedBreakTargets
+        )
     else:
         if isinstance(last, ast.IfStatement) and len(last.getScopes()) < 2:
             return True
         return any(_fallsThrough(sub, usedBreakTargets) for sub in last.getScopes())
+
 
 def _chooseJump(choices, breakPair, continuePair):
     assert None not in choices
@@ -768,7 +895,16 @@ def _chooseJump(choices, breakPair, continuePair):
             return b, t
     return choices[0]
 
-def _generateJumps(scope, usedBreakTargets, targets=collections.defaultdict(tuple), breakPair=None, continuePair=None, fallthroughs=NONE_SET, dryRun=False):
+
+def _generateJumps(
+    scope,
+    usedBreakTargets,
+    targets=collections.defaultdict(tuple),
+    breakPair=None,
+    continuePair=None,
+    fallthroughs=NONE_SET,
+    dryRun=False,
+):
     assert None in fallthroughs
     newfallthroughs = fallthroughs
     newcontinuePair = continuePair
@@ -796,7 +932,15 @@ def _generateJumps(scope, usedBreakTargets, targets=collections.defaultdict(tupl
         newtargets[item.breakKey] += ((item, False),)
 
         for subscope in reversed(item.getScopes()):
-            _generateJumps(subscope, usedBreakTargets, newtargets, newbreakPair, newcontinuePair, newfallthroughs, dryRun=dryRun)
+            _generateJumps(
+                subscope,
+                usedBreakTargets,
+                newtargets,
+                newbreakPair,
+                newcontinuePair,
+                newfallthroughs,
+                dryRun=dryRun,
+            )
             if isinstance(item, ast.SwitchStatement):
                 newfallthroughs = frozenset([None, subscope.continueKey])
         newfallthroughs = frozenset([None, item.continueKey])
@@ -810,7 +954,9 @@ def _generateJumps(scope, usedBreakTargets, targets=collections.defaultdict(tupl
     if scope.jumpKey not in fallthroughs:
         # Figure out if this jump is actually reachable
         if _fallsThrough(scope, usedBreakTargets):
-            target, isContinue = pair = _chooseJump(targets[scope.jumpKey], breakPair, continuePair)
+            target, isContinue = pair = _chooseJump(
+                targets[scope.jumpKey], breakPair, continuePair
+            )
             if not isContinue:
                 usedBreakTargets.add(target)
             if pair == breakPair or pair == continuePair:
@@ -819,19 +965,26 @@ def _generateJumps(scope, usedBreakTargets, targets=collections.defaultdict(tupl
             if not dryRun:
                 scope.statements.append(ast.JumpStatement(target, isContinue))
 
+
 def _pruneVoidReturn(scope):
     if scope.statements:
         last = scope.statements[-1]
         if isinstance(last, ast.ReturnStatement) and last.expr is None:
             scope.statements.pop()
 
+
 def _pruneCtorSuper(scope):
     if scope.statements:
         stmt = scope.statements[0]
         if isinstance(stmt, ast.ExpressionStatement):
             expr = stmt.expr
-            if isinstance(expr, ast.MethodInvocation) and len(expr.params) == 0 and expr.name == 'super':
+            if (
+                isinstance(expr, ast.MethodInvocation)
+                and len(expr.params) == 0
+                and expr.name == "super"
+            ):
                 scope.statements = scope.statements[1:]
+
 
 def generateAST(method, graph, forbidden_identifiers):
     env = method.class_.env
@@ -845,9 +998,9 @@ def generateAST(method, graph, forbidden_identifiers):
         graph.fixLoops()
         entryNode, nodes = graphproxy.createGraphProxy(graph)
         if not method.static:
-            entryNode.invars[0].name = 'this'
+            entryNode.invars[0].name = "this"
 
-        setree = structuring.structure(entryNode, nodes, (method.name == '<clinit>'))
+        setree = structuring.structure(entryNode, nodes, (method.name == "<clinit>"))
         ast_root, varinfo = astgen.createAST(method, graph, setree, namegen)
 
         argsources = [varinfo.var(entryNode, var) for var in entryNode.invars]
@@ -855,9 +1008,11 @@ def generateAST(method, graph, forbidden_identifiers):
         for expr, tt in zip(disp_args, tts):
             expr.dtype = tt
 
-        decls = [ast.VariableDeclarator(ast.TypeName(expr.dtype), expr) for expr in disp_args]
+        decls = [
+            ast.VariableDeclarator(ast.TypeName(expr.dtype), expr) for expr in disp_args
+        ]
         ################################################################################################
-        ast_root.bases = (ast_root,) # needed for our setScopeParents later
+        ast_root.bases = (ast_root,)  # needed for our setScopeParents later
 
         assert _generateJumps(ast_root, set(), dryRun=True) is None
         _preorder(ast_root, _fixObjectCreations)
@@ -882,16 +1037,35 @@ def generateAST(method, graph, forbidden_identifiers):
         _generateJumps(ast_root, set())
         _pruneVoidReturn(ast_root)
         _pruneCtorSuper(ast_root)
-    else: # abstract or native method
+    else:  # abstract or native method
         ast_root = None
-        argsources = [ast.Local(tt, lambda expr:namegen.getPrefix('arg')) for tt in tts]
-        decls = [ast.VariableDeclarator(ast.TypeName(expr.dtype), expr) for expr in argsources]
+        argsources = [
+            ast.Local(tt, lambda expr: namegen.getPrefix("arg")) for tt in tts
+        ]
+        decls = [
+            ast.VariableDeclarator(ast.TypeName(expr.dtype), expr)
+            for expr in argsources
+        ]
 
-    flags = method.flags - set(['BRIDGE','SYNTHETIC','VARARGS'])
-    if method.name == '<init>': # More arbtirary restrictions. Yay!
-        flags = flags - set(['ABSTRACT','STATIC','FINAL','NATIVE','STRICTFP','SYNCHRONIZED'])
+    flags = method.flags - set(["BRIDGE", "SYNTHETIC", "VARARGS"])
+    if method.name == "<init>":  # More arbtirary restrictions. Yay!
+        flags = flags - set(
+            ["ABSTRACT", "STATIC", "FINAL", "NATIVE", "STRICTFP", "SYNCHRONIZED"]
+        )
 
-    flagstr = ' '.join(map(str.lower, sorted(flags)))
-    inputTypes, returnTypes = parseMethodDescriptor(method.descriptor, unsynthesize=False)
-    ret_tt = objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else objtypes.VoidTT
-    return ast2.MethodDef(class_, flagstr, method.name, method.descriptor, ast.TypeName(ret_tt), decls, ast_root)
+    flagstr = " ".join(map(str.lower, sorted(flags)))
+    inputTypes, returnTypes = parseMethodDescriptor(
+        method.descriptor, unsynthesize=False
+    )
+    ret_tt = (
+        objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else objtypes.VoidTT
+    )
+    return ast2.MethodDef(
+        class_,
+        flagstr,
+        method.name,
+        method.descriptor,
+        ast.TypeName(ret_tt),
+        decls,
+        ast_root,
+    )

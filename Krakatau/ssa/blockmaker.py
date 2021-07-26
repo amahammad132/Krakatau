@@ -9,14 +9,21 @@ from .blockmakerfuncs import ResultDict, instructionHandlers
 from .ssa_types import BasicBlock, SSA_OBJECT, slots_t
 from functools import reduce
 
-def toBits(x): return [i for i in range(x.bit_length()) if x & (1 << i)]
+
+def toBits(x):
+    return [i for i in range(x.bit_length()) if x & (1 << i)]
+
 
 # keys for special blocks created at the cfg entry and exit. Negative keys ensures they don't collide
 ENTRY_KEY, RETURN_KEY, RETHROW_KEY = -1, -2, -3
 
+
 def getUsedLocals(iNodes, iNodeD, exceptions):
     # For every instruction, find which locals at that point may be used in the future
-    except_ranges = [(h, [node.key for node in iNodes if s <= node.key < e]) for s, e, h, i in exceptions]
+    except_ranges = [
+        (h, [node.key for node in iNodes if s <= node.key < e])
+        for s, e, h, i in exceptions
+    ]
 
     old = collections.defaultdict(int)
     while 1:
@@ -30,19 +37,26 @@ def getUsedLocals(iNodes, iNodeD, exceptions):
             elif node.instruction[0] == vops.IINC:
                 used |= 1 << node.instruction[1]
             elif node.instruction[0] == vops.STORE:
-                bits = 3 if node.instruction[1] in 'JD' else 1
+                bits = 3 if node.instruction[1] in "JD" else 1
                 used &= ~(bits << node.instruction[2])
             elif node.instruction[0] == vops.RET:
                 # If local is not in mask, it will use the value from the jsr instead of the ret
-                mask = sum(1<<i for i in node.out_state.copy().maskFor(node.jsrTarget))
+                mask = sum(
+                    1 << i for i in node.out_state.copy().maskFor(node.jsrTarget)
+                )
                 used &= mask
             elif node.instruction[0] == vops.JSR and node.returnedFrom is not None:
                 retnode = iNodeD[node.returnedFrom]
                 assert node.successors == (retnode.jsrTarget,)
-                mask = sum(1<<i for i in iNodeD[node.returnedFrom].out_state.copy().maskFor(retnode.jsrTarget))
+                mask = sum(
+                    1 << i
+                    for i in iNodeD[node.returnedFrom]
+                    .out_state.copy()
+                    .maskFor(retnode.jsrTarget)
+                )
 
                 assert node.next_instruction is not None
-                used |= (data[node.next_instruction] & ~mask)
+                used |= data[node.next_instruction] & ~mask
             data[node.key] |= used
 
         for hkey, region in except_ranges:
@@ -57,12 +71,20 @@ def getUsedLocals(iNodes, iNodeD, exceptions):
     old[ENTRY_KEY] = (1 << len(iNodeD[0].state.locals)) - 1
     return old
 
+
 def slotsRvals(inslots):
     stack = [(None if phi is None else phi.rval) for phi in inslots.stack]
-    newlocals = {i: phi.rval for i, phi in list(inslots.locals.items()) if phi is not None}
+    newlocals = {
+        i: phi.rval for i, phi in list(inslots.locals.items()) if phi is not None
+    }
     return slots_t(stack=stack, locals=newlocals)
 
-_jump_instrs = frozenset([vops.GOTO, vops.IF_A, vops.IF_ACMP, vops.IF_I, vops.IF_ICMP, vops.JSR, vops.SWITCH])
+
+_jump_instrs = frozenset(
+    [vops.GOTO, vops.IF_A, vops.IF_ACMP, vops.IF_I, vops.IF_ICMP, vops.JSR, vops.SWITCH]
+)
+
+
 class BlockMaker(object):
     def __init__(self, parent, iNodes, inputTypes, returnTypes, except_raw, opts):
         self.parent = parent
@@ -81,14 +103,28 @@ class BlockMaker(object):
         for node in self.iNodes:
             if node.op == vops.NEW:
                 self.initMap[node.stack_push[0]] = node.target_type
-        self.initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(parent.class_.name)
-        self.hasmonenter = any(node.instruction[0] == vops.MONENTER for node in self.iNodes)
+        self.initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(
+            parent.class_.name
+        )
+        self.hasmonenter = any(
+            node.instruction[0] == vops.MONENTER for node in self.iNodes
+        )
 
-        self.entryBlock = self.makeBlockWithInslots(ENTRY_KEY, newlocals=inputTypes, stack=[])
-        self.returnBlock = self.makeBlockWithInslots(RETURN_KEY, newlocals=[], stack=returnTypes)
-        self.returnBlock.jump = ssa_jumps.Return(self, [phi.rval for phi in self.returnBlock.phis])
-        self.rethrowBlock = self.makeBlockWithInslots(RETHROW_KEY, newlocals=[], stack=[verifier_types.THROWABLE_INFO])
-        self.rethrowBlock.jump = ssa_jumps.Rethrow(self, [phi.rval for phi in self.rethrowBlock.phis])
+        self.entryBlock = self.makeBlockWithInslots(
+            ENTRY_KEY, newlocals=inputTypes, stack=[]
+        )
+        self.returnBlock = self.makeBlockWithInslots(
+            RETURN_KEY, newlocals=[], stack=returnTypes
+        )
+        self.returnBlock.jump = ssa_jumps.Return(
+            self, [phi.rval for phi in self.returnBlock.phis]
+        )
+        self.rethrowBlock = self.makeBlockWithInslots(
+            RETHROW_KEY, newlocals=[], stack=[verifier_types.THROWABLE_INFO]
+        )
+        self.rethrowBlock.jump = ssa_jumps.Rethrow(
+            self, [phi.rval for phi in self.rethrowBlock.phis]
+        )
 
         # for ssagraph to copy
         self.inputArgs = slotsRvals(self.entryBlock.inslots).localsAsList
@@ -109,16 +145,20 @@ class BlockMaker(object):
             if node.instruction[0] in (vops.JSR, vops.RET):
                 jump_targets.append(node.key)
         for key in jump_targets:
-            if key not in self.blockd: # jump_targets may have duplicates
+            if key not in self.blockd:  # jump_targets may have duplicates
                 self.makeBlock(key)
 
         self.exceptionhandlers = []
         for (start, end, handler, index) in exceptions:
-            catchtype = parent.getConstPoolArgs(index)[0] if index else 'java/lang/Throwable'
-            if catchtype.startswith('L') and catchtype.endswith(';'):
+            catchtype = (
+                parent.getConstPoolArgs(index)[0] if index else "java/lang/Throwable"
+            )
+            if catchtype.startswith("L") and catchtype.endswith(";"):
                 catchtype = catchtype[1:-1]
             self.exceptionhandlers.append((start, end, self.blockd[handler], catchtype))
-        self.exceptionhandlers.append((0, 65536, self.rethrowBlock, 'java/lang/Throwable'))
+        self.exceptionhandlers.append(
+            (0, 65536, self.rethrowBlock, "java/lang/Throwable")
+        )
 
         # State variables for the append/builder loop
         self.current_block = self.entryBlock
@@ -135,7 +175,9 @@ class BlockMaker(object):
                 if not self._canAppendInstrToCurrent(node.key, dummyvals):
                     self._startNewBlock(node.key)
                 assert self._canAppendInstrToCurrent(node.key, dummyvals)
-                self._appendInstr(node, dummyvals, self.current_slots, check_terminate=False)
+                self._appendInstr(
+                    node, dummyvals, self.current_slots, check_terminate=False
+                )
                 vals, outslot_norm = self._getInstrLine(node)
 
             if not self._canAppendInstrToCurrent(node.key, vals):
@@ -158,7 +200,9 @@ class BlockMaker(object):
             block.locals_at_except = None
 
     def _canContinueBlock(self, node):
-        return (node.key not in self.blockd) and self.current_block.jump is None # fallthrough goto left as None
+        return (
+            node.key not in self.blockd
+        ) and self.current_block.jump is None  # fallthrough goto left as None
 
     def _chPairsAt(self, address):
         chpairs = []
@@ -190,7 +234,7 @@ class BlockMaker(object):
         return {i: newlocals[i] for i in used}
 
     def _startNewBlock(self, key):
-        ''' We can't continue appending to the current block, so start a new one (or use existing one at location) '''
+        """We can't continue appending to the current block, so start a new one (or use existing one at location)"""
         # Make new block
         if key not in self.blockd:
             self.makeBlock(key)
@@ -242,8 +286,12 @@ class BlockMaker(object):
         block.lines.append(ephi)
 
         assert block.jump is None
-        block.jump = ssa_jumps.OnException(parent, ephi.outException, block.chpairs, fallthrough)
-        outslot_except = slots_t(locals=block.locals_at_except, stack=[ephi.outException])
+        block.jump = ssa_jumps.OnException(
+            parent, ephi.outException, block.chpairs, fallthrough
+        )
+        outslot_except = slots_t(
+            locals=block.locals_at_except, stack=[ephi.outException]
+        )
         for suc in block.jump.getExceptSuccessors():
             self.mergeIn((block, True), suc.key, outslot_except)
 
@@ -264,12 +312,16 @@ class BlockMaker(object):
                 block.chpairs = self._chPairsAt(iNode.key)
                 temp = (self.used_locals[h.key] for t, h in block.chpairs)
                 block.except_used = toBits(reduce(operator.__or__, temp, 0))
-                block.locals_at_except = {i: inslots.locals[i] for i in block.except_used}
+                block.locals_at_except = {
+                    i: inslots.locals[i] for i in block.except_used
+                }
 
             if check_terminate:
                 # Return and Throw must be immediately ended because they don't have normal fallthrough
                 # CheckCast must terminate block because cast type hack later on requires casts to be at end of block
-                if iNode.instruction[0] in (vops.RETURN, vops.THROW) or isinstance(line, ssa_ops.CheckCast):
+                if iNode.instruction[0] in (vops.RETURN, vops.THROW) or isinstance(
+                    line, ssa_ops.CheckCast
+                ):
                     fallthrough = self.getExceptFallthrough(iNode)
                     self._addOnException(block, fallthrough, outslot_norm)
 
@@ -289,7 +341,11 @@ class BlockMaker(object):
                 for suc in block.jump.getNormalSuccessors():
                     self.mergeIn((block, False), suc.key, outslot_norm)
         self.current_slots = unmerged_slots
-        assert (block.chpairs is None) == (block.except_used is None) == (block.locals_at_except is None)
+        assert (
+            (block.chpairs is None)
+            == (block.except_used is None)
+            == (block.locals_at_except is None)
+        )
 
     def mergeIn(self, from_key, target_key, outslots):
         inslots = self.blockd[target_key].inslots
@@ -318,11 +374,15 @@ class BlockMaker(object):
 
         # create inslot phis
         stack = [self._makePhiFromVType(block, vt) for vt in stack]
-        newlocals = dict(enumerate(self._makePhiFromVType(block, vt) for vt in newlocals))
+        newlocals = dict(
+            enumerate(self._makePhiFromVType(block, vt) for vt in newlocals)
+        )
         newlocals = self.pruneUnused(key, newlocals)
 
         block.inslots = slots_t(locals=newlocals, stack=stack)
-        block.phis = [phi for phi in stack + block.inslots.localsAsList if phi is not None]
+        block.phis = [
+            phi for phi in stack + block.inslots.localsAsList if phi is not None
+        ]
         return block
 
     def makeBlock(self, key):
@@ -355,7 +415,10 @@ class BlockMaker(object):
 
         skiplocs = fromcall.locals
         retlocs = outslot_norm.locals
-        merged = {i: (skiplocs.get(i) if i in mask else retlocs.get(i)) for i in (mask | frozenset(retlocs))}
+        merged = {
+            i: (skiplocs.get(i) if i in mask else retlocs.get(i))
+            for i in (mask | frozenset(retlocs))
+        }
         # jump.debug_skipvars = set(merged) - set(locals)
 
         outslot_merged = slots_t(locals=merged, stack=fromcall.stack)

@@ -4,6 +4,7 @@ from ..ssa_types import SSA_OBJECT
 
 from .base import BaseOp
 
+
 class New(BaseOp):
     has_side_effects = True
 
@@ -19,6 +20,7 @@ class New(BaseOp):
         rout = ObjectConstraint.fromTops(self.env, [], [self.tt], nonnull=True)
         return returnOrThrow(rout, eout)
 
+
 class NewArray(BaseOp):
     has_side_effects = True
 
@@ -31,7 +33,9 @@ class NewArray(BaseOp):
 
     def propagateConstraints(self, i):
         if i.max < 0:
-            eout = ObjectConstraint.fromTops(self.env, [], (excepttypes.NegArrSize,), nonnull=True)
+            eout = ObjectConstraint.fromTops(
+                self.env, [], (excepttypes.NegArrSize,), nonnull=True
+            )
             return throw(eout)
 
         etypes = (excepttypes.OOM,)
@@ -41,6 +45,7 @@ class NewArray(BaseOp):
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
         rout = ObjectConstraint.fromTops(self.env, [], [self.tt], nonnull=True)
         return returnOrThrow(rout, eout)
+
 
 class MultiNewArray(BaseOp):
     has_side_effects = True
@@ -53,8 +58,10 @@ class MultiNewArray(BaseOp):
 
     def propagateConstraints(self, *dims):
         for i in dims:
-            if i.max < 0: # ignore possibility of OOM here
-                eout = ObjectConstraint.fromTops(self.env, [], (excepttypes.NegArrSize,), nonnull=True)
+            if i.max < 0:  # ignore possibility of OOM here
+                eout = ObjectConstraint.fromTops(
+                    self.env, [], (excepttypes.NegArrSize,), nonnull=True
+                )
                 return throw(eout)
 
         etypes = (excepttypes.OOM,)

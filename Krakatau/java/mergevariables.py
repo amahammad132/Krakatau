@@ -8,8 +8,10 @@ from .cfg import flattenDict, makeGraph
 # Given this info, we greedily merge related variables, that is, those where one is assigned to the other
 # to calculate which variables can be merged, we first have to build a CFG from the Java AST again
 
+
 class VarInfo(object):
     __slots__ = "key", "defs", "rdefs", "extracount"
+
     def __init__(self, key):
         self.key = key
         self.defs = set()
@@ -19,15 +21,17 @@ class VarInfo(object):
     def priority(self):
         return (len(self.defs) + self.extracount), self.key
 
+
 class EqualityData(object):
     def __init__(self, d=None):
         # Equal values point to a representative object instance. Singletons are not represented at all for efficiency
         # None represents the top value (i.e. this point has not been visited yet)
         self.d = d.copy() if d is not None else None
 
-    def _newval(self): return object()
+    def _newval(self):
+        return object()
 
-    def initialize(self): # initialize to bottom value (all variables unequal)
+    def initialize(self):  # initialize to bottom value (all variables unequal)
         assert self.d is None
         self.d = {}
 
@@ -65,7 +69,8 @@ class EqualityData(object):
                 todo = [k for k in todo if k not in new]
             self.d = new
 
-    def copy(self): return EqualityData(self.d)
+    def copy(self):
+        return EqualityData(self.d)
 
     def __eq__(self, other):
         if self.d is None or other.d is None:
@@ -80,13 +85,17 @@ class EqualityData(object):
                 return False
         return True
 
-    def __ne__(self, other): return not self == other
-    def __hash__(self): raise TypeError('unhashable type')
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        raise TypeError("unhashable type")
+
 
 def calcEqualityData(graph):
     graph.simplify()
     blocks = graph.blocks
-    d = {b:[EqualityData()] for b in blocks}
+    d = {b: [EqualityData()] for b in blocks}
 
     d[graph.entry][0].initialize()
     stack = [graph.entry]
@@ -103,10 +112,10 @@ def calcEqualityData(graph):
         del d[block][1:]
 
         for line_t, data in block.lines:
-            if line_t == 'def':
+            if line_t == "def":
                 cur.handleAssign(*data)
                 d[block].append(cur.copy())
-            elif line_t == 'canthrow':
+            elif line_t == "canthrow":
                 e_out.merge_update(cur)
 
         for out, successors in [(e_out, block.e_successors), (cur, block.n_successors)]:
@@ -122,11 +131,12 @@ def calcEqualityData(graph):
     assert not dirty
     return d
 
+
 class VarMergeInfo(object):
     def __init__(self, graph, methodparams, isstatic):
         self.info = {}
         self.final, self.unmergeable, self.external = set(), set(), set()
-        self.equality = None # to be calculated later
+        self.equality = None  # to be calculated later
         self.graph = graph
 
         self.pending_graph_replaces = {}
@@ -141,7 +151,7 @@ class VarMergeInfo(object):
 
         for block in graph.blocks:
             for line_t, data in block.lines:
-                if line_t == 'def':
+                if line_t == "def":
                     self._addassign(data[0], data[1])
             for caught in block.caught_excepts:
                 self._addvar(caught)
@@ -174,7 +184,7 @@ class VarMergeInfo(object):
             self._doGraphReplacements()
 
         blocks = self.graph.blocks
-        vok = {b:3 for b in blocks} # use bitmask v1ok = 1<<0, v2ok = 1<<1
+        vok = {b: 3 for b in blocks}  # use bitmask v1ok = 1<<0, v2ok = 1<<1
 
         stack = [b for b in blocks if v1 in b.vars or v2 in b.vars]
         while stack:
@@ -185,10 +195,10 @@ class VarMergeInfo(object):
             if v1 in block.vars or v2 in block.vars:
                 defcount = 0
                 for line_t, data in block.lines:
-                    if line_t == 'use':
+                    if line_t == "use":
                         if (data == v1 and not cur & 1) or (data == v2 and not cur & 2):
                             return False
-                    elif line_t == 'def':
+                    elif line_t == "def":
                         defcount += 1
 
                         if data[0] == v1 and data[1] != v1:
@@ -197,13 +207,16 @@ class VarMergeInfo(object):
                             cur = 2
                         if doeq and self.iseq(block, defcount, v1, v2):
                             cur = 3
-                    elif line_t == 'canthrow':
+                    elif line_t == "canthrow":
                         e_out &= cur
             else:
                 # v1 and v2 not touched in this block, so there is nothing to do
                 e_out = cur
 
-            for out, successors in [(e_out, block.e_successors), (cur, block.n_successors)]:
+            for out, successors in [
+                (e_out, block.e_successors),
+                (cur, block.n_successors),
+            ]:
                 for suc in successors:
                     if vok[suc] & out != vok[suc]:
                         stack.append(suc)
@@ -227,7 +240,7 @@ class VarMergeInfo(object):
             if len(d[cur].defs) > 1 or d[cur].extracount > 0:
                 candidate_set = candidate_set - final
             candidates = [v for v in candidate_set if v.dtype == cur.dtype]
-            candidates = sorted(candidates, key=lambda v:d[v].key)
+            candidates = sorted(candidates, key=lambda v: d[v].key)
             assert cur not in candidates
 
             # find first candidate that is actually compatible
@@ -235,7 +248,7 @@ class VarMergeInfo(object):
                 if self.compat(cur, parent, doeq):
                     break
             else:
-                continue # no candidates found
+                continue  # no candidates found
 
             replace[cur] = parent
             self.pending_graph_replaces[cur] = parent
@@ -271,6 +284,7 @@ class VarMergeInfo(object):
         self._doGraphReplacements()
         self.equality = calcEqualityData(self.graph)
         self.process(replace, True)
+
 
 ###############################################################################
 def mergeVariables(root, isstatic, parameters):

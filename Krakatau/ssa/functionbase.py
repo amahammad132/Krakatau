@@ -5,5 +5,5 @@ class SSAFunctionBase(object):
         assert None not in self.params
 
     def replaceVars(self, rdict):
-        self.params = [rdict.get(x,x) for x in self.params]
+        self.params = [rdict.get(x, x) for x in self.params]
         assert None not in self.params

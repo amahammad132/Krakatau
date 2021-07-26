@@ -9,6 +9,11 @@ class DefaultVisitor(object):
             return None
         return obj.tree(self, self.toTree)
 
-    def className(self, name): return name
-    def methodName(self, cls, name, desc): return name
-    def fieldName(self, cls, name, desc): return name
+    def className(self, name):
+        return name
+
+    def methodName(self, cls, name, desc):
+        return name
+
+    def fieldName(self, cls, name, desc):
+        return name

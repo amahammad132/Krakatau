@@ -5,6 +5,7 @@ from . import ast
 # A simple throws declaration inferrer that only considers throw statements within the method
 # this is mostly just useful to make sure the ExceptionHandlers test compiles
 
+
 def _visit_statement(env, stmt):
     if isinstance(stmt, ast.ThrowStatement):
         return stmt.expr.dtype
@@ -13,7 +14,9 @@ def _visit_statement(env, stmt):
     if isinstance(stmt, ast.TryStatement):
         caught_types = []
         for catch, b in stmt.pairs:
-            caught_types.extend(objtypes.className(tn.tt) for tn in catch.typename.tnames)
+            caught_types.extend(
+                objtypes.className(tn.tt) for tn in catch.typename.tnames
+            )
         if objtypes.ThrowableTT not in caught_types:
             temp = _visit_statement(env, stmt.tryb)
             if temp != objtypes.NullTT:
@@ -34,15 +37,19 @@ def _visit_statement(env, stmt):
         result = objtypes.commonSupertype(env, [result, _visit_statement(env, sub)])
 
     if result != objtypes.NullTT:
-        if env.isSubclass(objtypes.className(result), 'java/lang/RuntimeException'):
+        if env.isSubclass(objtypes.className(result), "java/lang/RuntimeException"):
             return objtypes.NullTT
     return result
+
 
 def addSingle(env, meth_asts):
     for meth in meth_asts:
         if not meth.body:
             continue
         tt = _visit_statement(env, meth.body)
-        assert objtypes.commonSupertype(env, [tt, objtypes.ThrowableTT]) == objtypes.ThrowableTT
+        assert (
+            objtypes.commonSupertype(env, [tt, objtypes.ThrowableTT])
+            == objtypes.ThrowableTT
+        )
         if tt != objtypes.NullTT:
             meth.throws = ast.TypeName(tt)

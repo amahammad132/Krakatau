@@ -4,9 +4,13 @@ from .writer import Writer, Label
 
 def writeU16Count(data, error, objects, message):
     count = len(objects)
-    if count >= 1<<16:
-        error('Maximum {} count is {}, found {}.'.format(message, (1<<16)-1, count), objects[-1].tok)
+    if count >= 1 << 16:
+        error(
+            "Maximum {} count is {}, found {}.".format(message, (1 << 16) - 1, count),
+            objects[-1].tok,
+        )
     data.u16(count)
+
 
 class Code(object):
     def __init__(self, tok, short):
@@ -21,26 +25,30 @@ class Code(object):
         self.stackdata = Writer()
         self.stackcount = 0
         self.stackcountpos = self.stackdata.ph16()
-        self.laststackoff = -1 # first frame doesn't subtract 1 from offset
+        self.laststackoff = -1  # first frame doesn't subtract 1 from offset
 
         self.stackmaptable = None
         self.dont_generate_stackmap = False
         self.attributes = []
 
         self.labels = {}
-        self.maxcodelen = (1<<16 if short else 1<<32) - 1
+        self.maxcodelen = (1 << 16 if short else 1 << 32) - 1
 
     def labeldef(self, lbl, error):
         if lbl.sym in self.labels:
-            error('Duplicate label definition', lbl.tok,
-                  'Previous definition here:', self.labels[lbl.sym][0])
+            error(
+                "Duplicate label definition",
+                lbl.tok,
+                "Previous definition here:",
+                self.labels[lbl.sym][0],
+            )
         self.labels[lbl.sym] = lbl.tok, self.bytecode.pos
 
     def catch(self, ref, fromlbl, tolbl, usinglbl):
         self.exceptcount += 1
-        self.exceptions.lbl(fromlbl, 0, 'u16')
-        self.exceptions.lbl(tolbl, 0, 'u16')
-        self.exceptions.lbl(usinglbl, 0, 'u16')
+        self.exceptions.lbl(fromlbl, 0, "u16")
+        self.exceptions.lbl(tolbl, 0, "u16")
+        self.exceptions.lbl(usinglbl, 0, "u16")
         self.exceptions.ref(ref)
 
     def assembleNoCP(self, data, error):
@@ -55,29 +63,35 @@ class Code(object):
         data.u16(self.exceptcount)
         data += self.exceptions
 
-        if self.stackmaptable is None and self.stackcount > 0 and not self.dont_generate_stackmap:
+        if (
+            self.stackmaptable is None
+            and self.stackcount > 0
+            and not self.dont_generate_stackmap
+        ):
             # Use arbitrary token in case we need to report errors
-            self.stackmaptable = Attribute(self.tok, b'StackMapTable')
+            self.stackmaptable = Attribute(self.tok, b"StackMapTable")
             self.attributes.append(self.stackmaptable)
 
         if self.stackmaptable:
             self.stackdata.setph16(self.stackcountpos, self.stackcount)
             self.stackmaptable.data = self.stackdata
 
-        writeU16Count(data, error, self.attributes, 'attribute')
+        writeU16Count(data, error, self.attributes, "attribute")
         for attr in self.attributes:
             attr.assembleNoCP(data, error)
         return data.fillLabels(self.labels, error)
+
 
 class RecordComponent(object):
     def __init__(self):
         self.attributes = []
 
     def assembleNoCP(self, data, error):
-        writeU16Count(data, error, self.attributes, 'attribute')
+        writeU16Count(data, error, self.attributes, "attribute")
         for attr in self.attributes:
             attr.assembleNoCP(data, error)
         return data
+
 
 class Attribute(object):
     def __init__(self, tok, name, length=None):
@@ -92,13 +106,19 @@ class Attribute(object):
 
     def assembleNoCP(self, data, error):
         length = len(self.data) if self.length is None else self.length
-        if length >= 1<<32:
-            error('Maximum attribute data length is {} bytes, got {} bytes.'.format((1<<32)-1, length), self.tok)
+        if length >= 1 << 32:
+            error(
+                "Maximum attribute data length is {} bytes, got {} bytes.".format(
+                    (1 << 32) - 1, length
+                ),
+                self.tok,
+            )
 
         data.ref(self.name)
         data.u32(length)
         data += self.data
         return data
+
 
 class Method(object):
     def __init__(self, tok, access, name, desc):
@@ -113,10 +133,11 @@ class Method(object):
         data.ref(self.name)
         data.ref(self.desc)
 
-        writeU16Count(data, error, self.attributes, 'attribute')
+        writeU16Count(data, error, self.attributes, "attribute")
         for attr in self.attributes:
             attr.assembleNoCP(data, error)
         return data
+
 
 class Field(object):
     def __init__(self, tok, access, name, desc):
@@ -131,10 +152,11 @@ class Field(object):
         data.ref(self.name)
         data.ref(self.desc)
 
-        writeU16Count(data, error, self.attributes, 'attribute')
+        writeU16Count(data, error, self.attributes, "attribute")
         for attr in self.attributes:
             attr.assembleNoCP(data, error)
         return data
+
 
 class Class(object):
     def __init__(self):
@@ -156,7 +178,7 @@ class Class(object):
         if not cpool.slots.get(clsind):
             return None
 
-        if cpool.slots[clsind].type != 'Class':
+        if cpool.slots[clsind].type != "Class":
             return None
 
         utfind = cpool.slots[clsind].refs[0].resolved_index
@@ -176,15 +198,15 @@ class Class(object):
         afterpool.u16(self.access)
         afterpool.ref(self.this)
         afterpool.ref(self.super)
-        writeU16Count(afterpool, error, self.interfaces, 'interface')
+        writeU16Count(afterpool, error, self.interfaces, "interface")
         for i in self.interfaces:
             afterpool.ref(i)
 
-        writeU16Count(afterpool, error, self.fields, 'field')
+        writeU16Count(afterpool, error, self.fields, "field")
         for field in self.fields:
             field.assembleNoCP(afterpool, error)
 
-        writeU16Count(afterpool, error, self.methods, 'method')
+        writeU16Count(afterpool, error, self.methods, "method")
         for method in self.methods:
             method.assembleNoCP(afterpool, error)
 
@@ -213,7 +235,10 @@ class Class(object):
         for _, ref in afterpool.refu8phs:
             ind = ref.resolve(self.pool, error)
             if ind >= 256:
-                error("Ldc references too many distinct constants in this class. If you don't want to see this message again, use ldc_w instead of ldc everywhere.", ref.tok)
+                error(
+                    "Ldc references too many distinct constants in this class. If you don't want to see this message again, use ldc_w instead of ldc everywhere.",
+                    ref.tok,
+                )
 
         beforepool.fillRefs(self.pool, error)
         afterpool.fillRefs(self.pool, error)
@@ -224,16 +249,18 @@ class Class(object):
         if self.bootstrapmethods is None and self.pool.bs.slots:
             assert len(afterbs) == 0
             # Use arbitrary token in case we need to report errors
-            self.bootstrapmethods = Attribute(self.this.tok, b'BootstrapMethods')
+            self.bootstrapmethods = Attribute(self.this.tok, b"BootstrapMethods")
             self.attributes.append(self.bootstrapmethods)
         if self.bootstrapmethods is not None:
             self.bootstrapmethods.name.resolve(self.pool, error)
             assert len(self.bootstrapmethods.data) == 0
 
-        if len(self.attributes) >= 1<<16:
-            error('Maximum class attribute count is 65535, found {}.'.format(count), self.attributes[-1].tok)
+        if len(self.attributes) >= 1 << 16:
+            error(
+                "Maximum class attribute count is 65535, found {}.".format(count),
+                self.attributes[-1].tok,
+            )
         afterpool.setph16(attrcountpos, len(self.attributes))
-
 
         cpdata, bsmdata = self.pool.write(error)
         assert len(bsmdata) < (1 << 32)
@@ -252,5 +279,5 @@ class Class(object):
 
         name = self._getName()
         if name is None:
-            error('Invalid reference for class name.', self.this.tok)
+            error("Invalid reference for class name.", self.this.tok)
         return name, data.toBytes()

@@ -1,8 +1,16 @@
 from .. import excepttypes, objtypes
-from ..constraints import FloatConstraint, IntConstraint, ObjectConstraint, maybeThrow, returnOrThrow, throw
+from ..constraints import (
+    FloatConstraint,
+    IntConstraint,
+    ObjectConstraint,
+    maybeThrow,
+    returnOrThrow,
+    throw,
+)
 from ..ssa_types import SSA_INT
 
 from .base import BaseOp
+
 
 def getElementTypes(env, tops):
     types = [objtypes.withDimInc(tt, -1) for tt in tops]
@@ -12,6 +20,7 @@ def getElementTypes(env, tops):
     supers = [tt for tt in types if objtypes.isBaseTClass(tt)]
     exact = [tt for tt in types if not objtypes.isBaseTClass(tt)]
     return ObjectConstraint.fromTops(env, supers, exact)
+
 
 class ArrLoad(BaseOp):
     def __init__(self, parent, args, ssatype):
@@ -25,17 +34,22 @@ class ArrLoad(BaseOp):
         if a.null:
             etypes += (excepttypes.NullPtr,)
             if a.isConstNull():
-                return throw(ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True))
+                return throw(
+                    ObjectConstraint.fromTops(
+                        self.env, [], [excepttypes.NullPtr], nonnull=True
+                    )
+                )
 
-        if self.ssatype[0] == 'int':
+        if self.ssatype[0] == "int":
             rout = IntConstraint.bot(self.ssatype[1])
-        elif self.ssatype[0] == 'float':
+        elif self.ssatype[0] == "float":
             rout = FloatConstraint.bot(self.ssatype[1])
-        elif self.ssatype[0] == 'obj':
+        elif self.ssatype[0] == "obj":
             rout = getElementTypes(self.env, a.types.supers | a.types.exact)
 
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
         return returnOrThrow(rout, eout)
+
 
 class ArrStore(BaseOp):
     has_side_effects = True
@@ -49,7 +63,11 @@ class ArrStore(BaseOp):
         if a.null:
             etypes += (excepttypes.NullPtr,)
             if a.isConstNull():
-                return throw(ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True))
+                return throw(
+                    ObjectConstraint.fromTops(
+                        self.env, [], [excepttypes.NullPtr], nonnull=True
+                    )
+                )
 
         if isinstance(x, ObjectConstraint):
             # If the type of a is known exactly to be the single possibility T[]
@@ -62,6 +80,7 @@ class ArrStore(BaseOp):
 
         return maybeThrow(ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True))
 
+
 class ArrLength(BaseOp):
     def __init__(self, parent, args):
         super(ArrLength, self).__init__(parent, args, makeException=True)
@@ -73,7 +92,11 @@ class ArrLength(BaseOp):
         if x.null:
             etypes += (excepttypes.NullPtr,)
             if x.isConstNull():
-                return throw(ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True))
+                return throw(
+                    ObjectConstraint.fromTops(
+                        self.env, [], [excepttypes.NullPtr], nonnull=True
+                    )
+                )
 
         excons = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return returnOrThrow(IntConstraint.range(32, 0, (1<<31)-1), excons)
+        return returnOrThrow(IntConstraint.range(32, 0, (1 << 31) - 1), excons)

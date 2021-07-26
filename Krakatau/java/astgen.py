@@ -7,19 +7,32 @@ from . import ast
 from .setree import SEBlockItem, SEIf, SEScope, SESwitch, SETry, SEWhile
 
 # prefixes for name generation
-_prefix_map = {objtypes.IntTT:'i', objtypes.LongTT:'j',
-            objtypes.FloatTT:'f', objtypes.DoubleTT:'d',
-            objtypes.BoolTT:'b', objtypes.StringTT:'s'}
+_prefix_map = {
+    objtypes.IntTT: "i",
+    objtypes.LongTT: "j",
+    objtypes.FloatTT: "f",
+    objtypes.DoubleTT: "d",
+    objtypes.BoolTT: "b",
+    objtypes.StringTT: "s",
+}
 
-_ssaToTT = {ssa_types.SSA_INT:objtypes.IntTT, ssa_types.SSA_LONG:objtypes.LongTT,
-            ssa_types.SSA_FLOAT:objtypes.FloatTT, ssa_types.SSA_DOUBLE:objtypes.DoubleTT}
+_ssaToTT = {
+    ssa_types.SSA_INT: objtypes.IntTT,
+    ssa_types.SSA_LONG: objtypes.LongTT,
+    ssa_types.SSA_FLOAT: objtypes.FloatTT,
+    ssa_types.SSA_DOUBLE: objtypes.DoubleTT,
+}
+
+
 class VarInfo(object):
     def __init__(self, method, blocks, namegen):
         self.env = method.class_.env
         self.labelgen = LabelGen().__next__
 
         returnTypes = parseMethodDescriptor(method.descriptor, unsynthesize=False)[-1]
-        self.return_tt = objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else None
+        self.return_tt = (
+            objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else None
+        )
         self.clsname = method.class_.name
         self._namegen = namegen
 
@@ -29,16 +42,16 @@ class VarInfo(object):
         for block in blocks:
             for var, uc in list(block.unaryConstraints.items()):
                 if var.type == ssa_types.SSA_OBJECT:
-                    tt = uc.getSingleTType() # temp hack
+                    tt = uc.getSingleTType()  # temp hack
                     if uc.types.isBoolOrByteArray():
-                        tt = objtypes.TypeTT(objtypes.BExpr, objtypes.dim(tt)+1)
+                        tt = objtypes.TypeTT(objtypes.BExpr, objtypes.dim(tt) + 1)
                         # assert (objtypes.BoolTT[0], tt[1]) in uc.types.exact
                 else:
                     tt = _ssaToTT[var.type]
                 self._tts[var] = tt
 
     def _nameCallback(self, expr):
-        prefix = _prefix_map.get(expr.dtype, 'a')
+        prefix = _prefix_map.get(expr.dtype, "a")
         return self._namegen.getPrefix(prefix)
 
     def _newVar(self, var, num, isCast):
@@ -49,10 +62,10 @@ class VarInfo(object):
         if var.name:
             # important to not add num when it is 0, since we currently
             # use var names to force 'this'
-            temp = '{}_{}'.format(var.name, num) if num else var.name
+            temp = "{}_{}".format(var.name, num) if num else var.name
             if isCast:
-                temp += 'c'
-            namefunc = lambda expr:temp
+                temp += "c"
+            namefunc = lambda expr: temp
         else:
             namefunc = self._nameCallback
 
@@ -71,15 +84,27 @@ class VarInfo(object):
             self._vars[key] = new
             return new
 
-    def customVar(self, tt, prefix): # for use with ignored exceptions
+    def customVar(self, tt, prefix):  # for use with ignored exceptions
         namefunc = lambda expr: self._namegen.getPrefix(prefix)
         return ast.Local(tt, namefunc)
 
+
 #########################################################################################
 _math_types = (ssa_ops.IAdd, ssa_ops.IDiv, ssa_ops.IMul, ssa_ops.IRem, ssa_ops.ISub)
-_math_types += (ssa_ops.IAnd, ssa_ops.IOr, ssa_ops.IShl, ssa_ops.IShr, ssa_ops.IUshr, ssa_ops.IXor)
+_math_types += (
+    ssa_ops.IAnd,
+    ssa_ops.IOr,
+    ssa_ops.IShl,
+    ssa_ops.IShr,
+    ssa_ops.IUshr,
+    ssa_ops.IXor,
+)
 _math_types += (ssa_ops.FAdd, ssa_ops.FDiv, ssa_ops.FMul, ssa_ops.FRem, ssa_ops.FSub)
-_math_symbols = dict(list(zip(_math_types, '+ / * % - & | << >> >>> ^ + / * % -'.split())))
+_math_symbols = dict(
+    list(zip(_math_types, "+ / * % - & | << >> >>> ^ + / * % -".split()))
+)
+
+
 def _convertJExpr(op, getExpr, clsname):
     params = [getExpr(var) for var in op.params]
     assert None not in params
@@ -93,7 +118,7 @@ def _convertJExpr(op, getExpr, clsname):
         opdict = _math_symbols
         expr = ast.BinaryInfix(opdict[type(op)], params)
     elif isinstance(op, ssa_ops.ArrLength):
-        expr = ast.FieldAccess(params[0], 'length', objtypes.IntTT)
+        expr = ast.FieldAccess(params[0], "length", objtypes.IntTT)
     elif isinstance(op, ssa_ops.ArrLoad):
         expr = ast.ArrayAccess(*params)
     elif isinstance(op, ssa_ops.ArrStore):
@@ -109,17 +134,33 @@ def _convertJExpr(op, getExpr, clsname):
 
         ascend = isinstance(op, ssa_ops.ICmp) or op.NaN_val == 1
         if ascend:
-            expr = ast.Ternary(ast.BinaryInfix('<',params,boolt), cn1, ast.Ternary(ast.BinaryInfix('==',params,boolt), c0, c1))
+            expr = ast.Ternary(
+                ast.BinaryInfix("<", params, boolt),
+                cn1,
+                ast.Ternary(ast.BinaryInfix("==", params, boolt), c0, c1),
+            )
         else:
             assert op.NaN_val == -1
-            expr = ast.Ternary(ast.BinaryInfix('>',params,boolt), c1, ast.Ternary(ast.BinaryInfix('==',params,boolt), c0, cn1))
+            expr = ast.Ternary(
+                ast.BinaryInfix(">", params, boolt),
+                c1,
+                ast.Ternary(ast.BinaryInfix("==", params, boolt), c0, cn1),
+            )
     elif isinstance(op, ssa_ops.FieldAccess):
-        dtype = objtypes.verifierToSynthetic(parseFieldDescriptor(op.desc, unsynthesize=False)[0])
+        dtype = objtypes.verifierToSynthetic(
+            parseFieldDescriptor(op.desc, unsynthesize=False)[0]
+        )
 
         if op.instruction[0] in (opnames.GETSTATIC, opnames.PUTSTATIC):
-            printLeft = (op.target != clsname) # Don't print classname if it is a static field in current class
-            tt = objtypes.TypeTT(op.target, 0) # Doesn't handle arrays, but they don't have any fields anyway
-            expr = ast.FieldAccess(ast.TypeName(tt), op.name, dtype, op, printLeft=printLeft)
+            printLeft = (
+                op.target != clsname
+            )  # Don't print classname if it is a static field in current class
+            tt = objtypes.TypeTT(
+                op.target, 0
+            )  # Doesn't handle arrays, but they don't have any fields anyway
+            expr = ast.FieldAccess(
+                ast.TypeName(tt), op.name, dtype, op, printLeft=printLeft
+            )
         else:
             expr = ast.FieldAccess(params[0], op.name, dtype, op)
 
@@ -127,53 +168,73 @@ def _convertJExpr(op, getExpr, clsname):
             expr = ast.Assignment(expr, params[-1])
 
     elif isinstance(op, ssa_ops.FNeg):
-        expr = ast.UnaryPrefix('-', params[0])
+        expr = ast.UnaryPrefix("-", params[0])
     elif isinstance(op, ssa_ops.InstanceOf):
         args = [params[0], ast.TypeName(op.target_tt)]
-        expr = ast.BinaryInfix('instanceof', args, dtype=objtypes.BoolTT)
+        expr = ast.BinaryInfix("instanceof", args, dtype=objtypes.BoolTT)
     elif isinstance(op, ssa_ops.Invoke):
         vtypes, rettypes = parseMethodDescriptor(op.desc, unsynthesize=False)
         tt_types = objtypes.verifierToSynthetic_seq(vtypes)
         ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None
         target_tt = op.target_tt
 
-        if objtypes.dim(target_tt) and op.name == "clone": # In Java, T[].clone returns T[] rather than Object
+        if (
+            objtypes.dim(target_tt) and op.name == "clone"
+        ):  # In Java, T[].clone returns T[] rather than Object
             ret_type = target_tt
 
         if op.instruction[0] == opnames.INVOKEINIT and op.isThisCtor:
-            name = 'this' if (op.target == clsname) else 'super'
+            name = "this" if (op.target == clsname) else "super"
             expr = ast.MethodInvocation(None, name, tt_types, params[1:], op, ret_type)
-        elif op.instruction[0] == opnames.INVOKESTATIC: # TODO - fix this for special super calls
-            expr = ast.MethodInvocation(ast.TypeName(target_tt), op.name, [None]+tt_types, params, op, ret_type)
+        elif (
+            op.instruction[0] == opnames.INVOKESTATIC
+        ):  # TODO - fix this for special super calls
+            expr = ast.MethodInvocation(
+                ast.TypeName(target_tt),
+                op.name,
+                [None] + tt_types,
+                params,
+                op,
+                ret_type,
+            )
         else:
-            expr = ast.MethodInvocation(params[0], op.name, [target_tt]+tt_types, params[1:], op, ret_type)
+            expr = ast.MethodInvocation(
+                params[0], op.name, [target_tt] + tt_types, params[1:], op, ret_type
+            )
     elif isinstance(op, ssa_ops.InvokeDynamic):
         vtypes, rettypes = parseMethodDescriptor(op.desc, unsynthesize=False)
         ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None
-        fmt = '/*invokedynamic*/'
+        fmt = "/*invokedynamic*/"
         if ret_type is not None:
-            fmt += '{{{}}}'.format(len(params))
+            fmt += "{{{}}}".format(len(params))
             params.append(ast.dummyLiteral(ret_type))
         expr = ast.Dummy(fmt, params, dtype=ret_type)
     elif isinstance(op, ssa_ops.Monitor):
-        fmt = '/*monexit({})*/' if op.exit else '/*monenter({})*/'
+        fmt = "/*monexit({})*/" if op.exit else "/*monenter({})*/"
         expr = ast.Dummy(fmt, params)
     elif isinstance(op, ssa_ops.MultiNewArray):
         expr = ast.ArrayCreation(op.tt, *params)
     elif isinstance(op, ssa_ops.New):
-        expr = ast.Dummy('/*<unmerged new> {}*/', [ast.TypeName(op.tt)], isNew=True)
+        expr = ast.Dummy("/*<unmerged new> {}*/", [ast.TypeName(op.tt)], isNew=True)
     elif isinstance(op, ssa_ops.NewArray):
         expr = ast.ArrayCreation(op.tt, params[0])
     elif isinstance(op, ssa_ops.Truncate):
-        tt = {(True,16): objtypes.ShortTT, (False,16): objtypes.CharTT, (True,8): objtypes.ByteTT}[op.signed, op.width]
+        tt = {
+            (True, 16): objtypes.ShortTT,
+            (False, 16): objtypes.CharTT,
+            (True, 8): objtypes.ByteTT,
+        }[op.signed, op.width]
         expr = ast.Cast(ast.TypeName(tt), params[0])
     if op.rval is not None and expr:
         expr = ast.Assignment(getExpr(op.rval), expr)
 
-    if expr is None: # Temporary hack
-        if isinstance(op, (ssa_ops.TryReturn, ssa_ops.ExceptionPhi, ssa_ops.MagicThrow)):
-            return None # Don't print out anything
+    if expr is None:  # Temporary hack
+        if isinstance(
+            op, (ssa_ops.TryReturn, ssa_ops.ExceptionPhi, ssa_ops.MagicThrow)
+        ):
+            return None  # Don't print out anything
     return ast.ExpressionStatement(expr)
+
 
 #########################################################################################
 def _createASTBlock(info, endk, node):
@@ -215,7 +276,7 @@ def _createASTBlock(info, endk, node):
         assert (n2 in node.outvars) != (n2 in node.eassigns)
         if n2 in node.eassigns:
             for outv, inv in zip(node.eassigns[n2], n2.invars):
-                if outv is None: # this is how we mark the thrown exception, which
+                if outv is None:  # this is how we mark the thrown exception, which
                     # obviously doesn't get an explicit assignment statement
                     continue
                 expr = ast.Assignment(info.var(n2, inv), info.var(node, outv))
@@ -250,9 +311,9 @@ def _createASTBlock(info, endk, node):
     elif len(norm_successors) == 0:
         assert isinstance(jump, ssa_jumps.OnException)
         breakKey, jumpKey = endk, None
-    elif len(norm_successors) == 1: # normal successors
+    elif len(norm_successors) == 1:  # normal successors
         breakKey, jumpKey = endk, norm_successors[0]._key
-    else: # case of if and switch jumps handled in parent scope
+    else:  # case of if and switch jumps handled in parent scope
         assert len(norm_successors) > 1
         breakKey, jumpKey = endk, endk
 
@@ -260,7 +321,12 @@ def _createASTBlock(info, endk, node):
     assert None not in statements
     return new
 
-_cmp_strs = dict(list(zip(('eq','ne','lt','ge','gt','le'), "== != < >= > <=".split())))
+
+_cmp_strs = dict(
+    list(zip(("eq", "ne", "lt", "ge", "gt", "le"), "== != < >= > <=".split()))
+)
+
+
 def _createASTSub(info, current, ftitem, forceUnlabled=False):
     begink = current.entryBlock._key
     endk = ftitem.entryBlock._key if ftitem is not None else None
@@ -269,19 +335,30 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
         return _createASTBlock(info, endk, current.node)
     elif isinstance(current, SEScope):
         ftitems = current.items[1:] + [ftitem]
-        parts = [_createASTSub(info, item, newft) for item, newft in zip(current.items, ftitems)]
-        return ast.StatementBlock(info.labelgen, begink, endk, parts, endk, labelable=(not forceUnlabled))
+        parts = [
+            _createASTSub(info, item, newft)
+            for item, newft in zip(current.items, ftitems)
+        ]
+        return ast.StatementBlock(
+            info.labelgen, begink, endk, parts, endk, labelable=(not forceUnlabled)
+        )
     elif isinstance(current, SEWhile):
-        parts = [_createASTSub(info, scope, current, True) for scope in current.getScopes()]
+        parts = [
+            _createASTSub(info, scope, current, True) for scope in current.getScopes()
+        ]
         return ast.WhileStatement(info.labelgen, begink, endk, tuple(parts))
     elif isinstance(current, SETry):
         assert len(current.getScopes()) == 2
-        parts = [_createASTSub(info, scope, ftitem, True) for scope in current.getScopes()]
+        parts = [
+            _createASTSub(info, scope, ftitem, True) for scope in current.getScopes()
+        ]
         catchnode = current.getScopes()[-1].entryBlock
         declt = ast.CatchTypeNames(info.env, current.toptts)
 
-        if current.catchvar is None: # exception is ignored and hence not referred to by the graph, so we need to make our own
-            catchvar = info.customVar(declt.dtype, 'ignoredException')
+        if (
+            current.catchvar is None
+        ):  # exception is ignored and hence not referred to by the graph, so we need to make our own
+            catchvar = info.customVar(declt.dtype, "ignoredException")
         else:
             catchvar = info.var(catchnode, current.catchvar)
         decl = ast.VariableDeclarator(declt, catchvar)
@@ -295,7 +372,9 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
     jump = node.block.jump
 
     if isinstance(current, SEIf):
-        parts = [_createASTSub(info, scope, ftitem, True) for scope in current.getScopes()]
+        parts = [
+            _createASTSub(info, scope, ftitem, True) for scope in current.getScopes()
+        ]
         cmp_str = _cmp_strs[jump.cmp]
         exprs = [info.var(node, var) for var in jump.params]
         ifexpr = ast.BinaryInfix(cmp_str, exprs, objtypes.BoolTT)
@@ -303,9 +382,12 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
 
     elif isinstance(current, SESwitch):
         ftitems = current.ordered[1:] + [ftitem]
-        parts = [_createASTSub(info, item, newft, True) for item, newft in zip(current.ordered, ftitems)]
+        parts = [
+            _createASTSub(info, item, newft, True)
+            for item, newft in zip(current.ordered, ftitems)
+        ]
         for part in parts:
-            part.breakKey = endk # createSub will assume break should be ft, which isn't the case with switch statements
+            part.breakKey = endk  # createSub will assume break should be ft, which isn't the case with switch statements
 
         expr = info.var(node, jump.params[0])
         pairs = list(zip(current.ordered_keysets, parts))
@@ -315,6 +397,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
     headscope = _createASTBlock(info, midk, node)
     assert headscope.jumpKey is midk
     return ast.StatementBlock(info.labelgen, begink, endk, [headscope, new], endk)
+
 
 def createAST(method, ssagraph, seroot, namegen):
     info = VarInfo(method, ssagraph.blocks, namegen)

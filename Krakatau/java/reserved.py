@@ -1,4 +1,4 @@
-reserved_identifiers = '''
+reserved_identifiers = """
 abstract
 assert
 boolean
@@ -52,4 +52,4 @@ try
 void
 volatile
 while
-'''.split()
+""".split()
