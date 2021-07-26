@@ -51,7 +51,7 @@ def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=Tr
             filename = out.write(name, output.getvalue())
             if filename is not None:
                 print('Class written to', filename)
-                print(time.time() - start_time, ' seconds elapsed')
+                print(f'{time.time() - start_time:.3f} seconds elapsed')
 
 def main(args):
     print(script_util.copyright)
