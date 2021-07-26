@@ -95,7 +95,7 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
     with e, out:
         printer = visitor.DefaultVisitor()
         for i,target in enumerate(targets):
-            print('processing target {}, {} remaining'.format(target, len(targets)-i))
+            print('processing target {}, {} remaining'.format(target.decode(), len(targets)-i))
 
             try:
                 c = e.getClass(target.decode('utf8'))
@@ -119,7 +119,7 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
 
             filename = out.write(c.name.encode('utf8'), source)
             print('Class written to', filename)
-            print(time.time() - start_time, ' seconds elapsed')
+            print(f'{time.time() - start_time:.3f} seconds elapsed')
             deleteUnusued(c)
         print(len(e.classes) - len(targets), 'extra classes loaded')
 

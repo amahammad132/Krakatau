@@ -29,7 +29,7 @@ def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=Tr
     start_time = time.time()
     with out:
         for i, target in enumerate(targets):
-            print('processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets)))
+            print('processing target {}, {}/{} remaining'.format(target.decode(), len(targets)-i, len(targets)))
 
             data = readTarget(target)
             if not data.startswith(b'\xca\xfe\xba\xbe'):
